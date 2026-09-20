@@ -87,7 +87,7 @@ class Suspension_A:
             camber=np.zeros(4)
         )
 
-        self.geometry = create_fast_geometry(self)
+        #self.geometry = create_fast_geometry(self)
 
 
         Ixx = 60

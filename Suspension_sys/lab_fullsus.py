@@ -54,9 +54,9 @@ state.save_state_json(
 #plot_vehicle_results(result)
 
 
-viewer = SuspensionDashboard(result)
+#viewer = SuspensionDashboard(result)
 #viewer = wheel_monitor(quarter_result)
-#viewer = PitchCarVisualizer(pitch_result)
+viewer = PitchCarVisualizer(pitch_result)
 #viewer = RollCarVisualizer(f_result)
 viewer.show()
 
