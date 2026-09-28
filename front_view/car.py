@@ -19,7 +19,7 @@ class Car:
         self.l = 1.53 # wheelbase
         self.lf = 0.7498400000000001 # CG>>fa
         self.lr = self.l-self.lf # CG>>ra
-        self.tf = 1.28 # front_track
+        self.tf = 1.25 # front_track
         self.tr = 1.24 # rear_track
         self.h_cog = 0.3016451511 # 重心高 
         self.m = 321 # mass
@@ -29,7 +29,7 @@ class Car:
         # 前懸吊車體節面
         # 3 4
         # 2 1
-        self.body_face_f = [(0.35, self.bottom), (-0.35, self.bottom), (-0.35, 0.5), (0.35, 0.5)]
+        self.body_face_f = [(0.2, self.bottom), (-0.2, self.bottom), (-0.2, 0.5), (0.2, 0.5)]
 
         # =================================(輪胎)
         self.tir = "tire.tir"
@@ -41,11 +41,11 @@ class Car:
 
         print("load_Radius",self.load_Radius)
 
-        # =================================(懸吊幾何)
+        # =================================(懸吊幾何fv)
         self.scrub_radius_f = 18/1000 # m
         self.kpi_f = np.deg2rad(9) # rad
         self.h_rc_f = 25/1000 # m
-        self.fvsa_f = 1500/1000 # m
+        self.fvsa_f = 1050/1000 # m
 
         # 輪端接點
         self.Au_f = 85/1000
@@ -54,6 +54,10 @@ class Car:
         # 3 4
         # 2 1
         # rl,ll,lu,ru
-        self.sus_contact_f = [(0.35, 0), (-0.35, 0), (-0.35, 0.5), (0.35, 0.5)]
+        self.sus_contact_f = [(0.205, 0.08), (-0.205, 0.08), (-0.250, 0.205), (0.250, 0.205)]
+
+        # ================================(懸吊幾何sv)
+        self.mechanical_tail = 15/1000 # m
+        self.caster = 4 # deg
 
 Car()
