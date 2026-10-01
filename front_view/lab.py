@@ -3,14 +3,15 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D  # 啟用 3D 繪圖
 from scipy.interpolate import griddata
-from car import Car
+from car import Car, SuspensionF
 import Geometric_Analysis as ga
 
 
 
 # 初始化懸吊系統
 car = Car()
-sus_helper = ga.SusGeometryHelper(car)
+suspension_f = SuspensionF()
+sus_helper = ga.SusGeometryHelper(car, suspension_f)
 static_pts = sus_helper.calc_static_points()
 
 right_sus = ga.SuspensionSide("Right", is_left=False)

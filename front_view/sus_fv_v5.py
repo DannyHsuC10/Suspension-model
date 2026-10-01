@@ -3,12 +3,12 @@ import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 import numpy as np
 import visualization as vis
-from car import Car
+from car import Car, SuspensionF
 from matplotlib.widgets import Slider
 from visualization import LinkPlot, PointPlot, PolygonPlot
 import Geometric_Analysis as ga
 car = Car()
-g = 9.81
+suspension_f = SuspensionF()
 
 
 # ==============================================================================
@@ -35,8 +35,8 @@ class Scene:
 # ==============================================================================
 # 4. 主程式流程 (Main Execution)
 # ==============================================================================
-sus_helper = ga.SusGeometryHelper(car)
-fig, ax = plt.subplots()
+sus_helper = ga.SusGeometryHelper(car, suspension_f)
+fig, ax = plt.subplots(figsize=suspension_f.front_view_figure_size)
 
 # 靜態幾何計算
 static_pts = sus_helper.calc_static_points()
@@ -57,6 +57,23 @@ scene = Scene(ax)
 right_sus.add_to_scene(scene)
 left_sus.add_to_scene(scene)
 
+# Connect the two tire contact points and continue their line beyond both ends.
+gnd_axis_start = ge.Point(right_sus.gnd.pos, "Ground axis start")
+gnd_axis_end = ge.Point(left_sus.gnd.pos, "Ground axis end")
+gnd_axis = ge.Link(gnd_axis_start, gnd_axis_end, "Extended ground-contact axis")
+scene.add(gnd_axis, color="0.25", linestyle="--", linewidth=1.5)
+
+
+def update_gnd_axis():
+    right_gnd = right_sus.gnd.pos
+    left_gnd = left_sus.gnd.pos
+    span = left_gnd - right_gnd
+    gnd_axis_start.move(right_gnd - span)
+    gnd_axis_end.move(left_gnd + span)
+
+
+update_gnd_axis()
+
 # 畫出重心與滾動中心
 cg_pt = ge.Point(static_pts["cg"], "cg")
 rc_pt = ge.Point(static_pts["rc"], "rc")
@@ -76,12 +93,13 @@ plt.axvline(x=0, color="black", linestyle="--", linewidth=1)
 theta0 = right_sus.lower_arm.angle
 theta_down_r, theta_up_r = ga.calculate_theta_limits(
     sus=right_sus,
-    target_travel=0.025,)
+    target_travel=suspension_f.front_view_target_travel,
+)
 
 # GUI 滑桿設定
-fig.subplots_adjust(bottom=0.25)
-ax_slider_r = plt.axes([0.2, 0.12, 0.6, 0.03])
-ax_slider_l = plt.axes([0.2, 0.05, 0.6, 0.03])
+fig.subplots_adjust(bottom=suspension_f.front_view_plot_bottom)
+ax_slider_r = plt.axes(suspension_f.front_view_slider_axes[0])
+ax_slider_l = plt.axes(suspension_f.front_view_slider_axes[1])
 
 slider_r = Slider(
     ax_slider_r, "Right Arm Angle", theta_down_r, theta_up_r, valinit=theta0
@@ -108,6 +126,8 @@ def update(val):
         if hasattr(rc_pt, 'artist'):
             rc_pt.artist.set_data([new_rc_pos[0]], [new_rc_pos[1]])
 
+    update_gnd_axis()
+
     # 4. 刷新畫布場景
     scene.update()
 
@@ -116,8 +136,8 @@ slider_l.on_changed(update)
 
 # 圖表顯示設定
 ax.set_aspect("equal")
-ax.set_xlim(-1.5, 1.5)
-ax.set_ylim(-0.5, 1.0)
+ax.set_xlim(*suspension_f.front_view_x_limits)
+ax.set_ylim(*suspension_f.front_view_y_limits)
 ax.grid(True)
 plt.title("Suspension Kinematics Front View")
 plt.xlabel("X [m]")

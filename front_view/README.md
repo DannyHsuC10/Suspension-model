@@ -43,11 +43,12 @@ rc_camber_map.py
 
 | 檔案 | 內容與目的 |
 | --- | --- |
-| `car.py` | 車輛與前懸吊設計參數。包含 wheelbase、CG、track、輪胎半徑、輪胎寬、scrub radius、KPI、目標 roll center 高度、FVSA、上下輪端接點等。 |
+| `car.py` | 定義 `Car` 車輛/輪胎參數物件，以及 `SuspensionF` 前懸吊幾何與分析設定物件。 |
 | `geometry.py` | 基礎 2D 幾何物件。包含 `Point`、`Link`、`RigidBody2D`、`Polygon`、`Wheel`、`Body`。 |
 | `Geometric_Analysis.py` | 前視懸吊幾何與運動學核心。負責算靜態點位、上下控制臂、羊角、instant center、roll center、camber、行程反算等。 |
 | `visualization.py` | Matplotlib 視覺化封裝。把 `Point`、`Link`、`Polygon` 畫成可更新的 plot object。 |
 | `sus_fv_v5.py` | 互動式前視懸吊圖。用兩個 slider 控制左右 lower arm angle，並即時更新幾何與 roll center。 |
+| `sus_sv.py` | 互動式前後軸側視懸吊圖。前後輪中心相隔 `Car.l`，使用 `SuspensionF` 與 `SuspensionR` 幾何；兩個滑桿分別控制前、後輪的 Al 高度並更新當下 IC。後軸幾何沿車身縱向反向，後輪 IC 位於後輪後方，前輪 IC 位於前輪前方。 |
 | `sus_fv_maping.py` | 批次掃描左右 lower arm angle，計算 heave、roll、左右 camber、RC 位置與各點座標，輸出 `.pkl`。 |
 | `rc_camber_map.py` | 讀取 `suspension_kinematics_data.pkl`，畫出 camber 3D surface、RC migration cloud 與 RC height surface。 |
 | `lab.py` | 直接求解範例。展示如何用 theta、wheel travel、heave/roll 姿態反推 camber 與 roll center。 |
@@ -71,7 +72,26 @@ rc_camber_map.py
 
 ## `car.py`
 
-`Car` 類別是前視幾何的參數來源。重要參數包含：
+`Car` 只放車輛與輪胎資料；`SuspensionF` 與 `SuspensionR` 分別放前、後懸吊硬點、側視 anti 設定與幾何分析的顯示/掃描設定。
+
+| 物件 | 主要內容 |
+| --- | --- |
+| `Car` | 軸距、重心位置、前後輪距、質量、重力、車底高度、車體截面、輪胎參數與負載輪胎半徑。 |
+| `SuspensionF` / `SuspensionR` | 各軸的前視 `scrub_radius`、`kpi`、`h_rc`、`fvsa`、`Au`/`Al`、車身側硬點，以及側視 caster、mechanical trail、anti-dive/anti-lift 與顯示設定。側視圖中的前後輪中心距使用 `Car.l`。 |
+
+前視分析會同時建立兩個物件，再交給幾何 helper：
+
+```python
+from car import Car, SuspensionF
+
+car = Car()
+suspension_f = SuspensionF()
+sus_helper = ga.SusGeometryHelper(car, suspension_f)
+```
+
+`SusGeometryHelper` 從 `Car` 讀取車輛/輪胎資料，從 `SuspensionF` 讀取懸吊硬點與幾何目標。
+
+`Car` 的主要參數包含：
 
 | 參數 | 說明 |
 | --- | --- |
@@ -80,11 +100,10 @@ rc_camber_map.py
 | `h_cog` | 重心高度。 |
 | `m`, `w` | 車重與重量。 |
 | `bottom` | 車底距地高度。 |
-| `body_face_f` | 前視車體截面 polygon。 |
+| `body_face_f` | 前視圖使用的車體截面 polygon。 |
 | `free_radius`, `load_Radius`, `tire_width` | 輪胎自由半徑、負載半徑與胎寬。 |
-| `scrub_radius_f`, `kpi_f`, `h_rc_f`, `fvsa_f` | 前懸吊幾何設計參數。 |
-| `Au_f`, `Al_f` | 上/下輪端接點相對設定。 |
-| `sus_contact_f` | 車體側懸吊接點的幾何參考框。 |
+
+`SuspensionF` 與 `SuspensionR` 的參數名稱都不加 `_f` 或 `_r` 後綴，由物件本身表示軸別。側視圖使用前軸為正 x 方向，後軸沿 x 方向反轉；輪心 x 間距固定為 `Car.l`。兩個側視滑桿分別改變前後軸 Al 高度。後軸設定目前的預設值與前軸相同，可在 `SuspensionR` 中獨立調整。
 
 ## `geometry.py`
 
@@ -117,7 +136,7 @@ rc_camber_map.py
 
 | 類別 | 功能 |
 | --- | --- |
-| `SusGeometryHelper` | 從 `Car` 參數建立靜態點位，並提供線交點、IC 更新、RC 計算。 |
+| `SusGeometryHelper` | 從 `Car` 與 `SuspensionF` 參數建立靜態點位，並提供線交點、IC 更新、RC 計算。 |
 | `SuspensionSide` | 單側懸吊物件。包含 point、link、force line、wheel、upright body，並可鏡像生成左側。 |
 | `SuspensionDirectSolver` | 直接求解器。可用 theta、左右 wheel travel 或 heave/roll 姿態反算 camber 與 RC。 |
 
@@ -230,7 +249,7 @@ steps = 30
 
 ## 注意事項
 
-- `car.py` 檔案底部直接呼叫 `Car()`，所以 import 時會印出 `load_Radius`。
+- `Car` 與 `SuspensionF` 可分別調整；更新其中的硬點或參數後，互動圖與 mapping 分析都從這兩個物件讀取設定。
 - `Geometric_Analysis.py` 的 `calc_roll_center()` 目前會 `print("rc_pos", rc_pos)`，批次掃描時終端會輸出很多 RC 座標。
 - `geometry.Link` 中 `angle` property 定義了兩次，結果相同，但可日後整理。
 - `SuspensionSide.update_kinematics()` 內有 `self.upper_force.p2 = self.IC` 等設定，但 `Link` 使用的是 `start/end` 屬性；若 force line 沒有如預期更新，這裡可以檢查是否應改為更新 `end`。

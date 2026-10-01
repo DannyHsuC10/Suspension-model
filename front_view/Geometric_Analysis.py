@@ -94,7 +94,9 @@ def calculate_theta_limits(sus, target_travel=0.025):
 class SusGeometryHelper:
     """懸吊幾何與運動學數值求解工具箱"""
 
-    def __init__(self, car):
+    def __init__(self, car, suspension_f):
+        self.car = car
+        self.suspension_f = suspension_f
         self.tire_width = car.tire_width
         self.free_radius = car.free_radius
         self.h_cog = car.h_cog
@@ -102,14 +104,14 @@ class SusGeometryHelper:
 
         self.t = car.tf
         self.load_Radius = car.load_Radius[0]
-        self.scrub_radius = car.scrub_radius_f
-        self.kpi = car.kpi_f
-        self.h_rc = car.h_rc_f
-        self.fvsa = car.fvsa_f
+        self.scrub_radius = suspension_f.scrub_radius
+        self.kpi = suspension_f.kpi
+        self.h_rc = suspension_f.h_rc
+        self.fvsa = suspension_f.fvsa
         self.body_face_f = car.body_face_f
-        self.sus_contact_f = car.sus_contact_f
-        self.Au = car.Au_f
-        self.Al = car.Al_f
+        self.sus_contact = suspension_f.sus_contact
+        self.Au = suspension_f.Au
+        self.Al = suspension_f.Al
 
     @staticmethod
     def line_intersection(p1, p2, q1, q2):
@@ -166,7 +168,7 @@ class SusGeometryHelper:
             [gnd[0] - self.tire_width / 2, gnd[1] + self.free_radius * 2]
         )
 
-        rl, ll_p, lu_p, ru = self.sus_contact_f
+        rl, ll_p, lu_p, ru = self.sus_contact
         cpb_rl = self.line_intersection(rl, ru, lak, ICo)
         cpb_ru = self.line_intersection(rl, ru, kua, ICo)
 
