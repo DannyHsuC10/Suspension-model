@@ -84,7 +84,7 @@ class SuspensionF:
         self.caster_sv_deg = 4.0  # Caster angle [deg]
         self.kingpin_length_sv = 0.6  # Drawn kingpin-axis length [m]
         self.front_brake_bias_sv = 0.7  # Fraction of braking force at front axle
-        self.target_anti_dive_sv = 0.5  # Anti-dive fraction (0.5 means 50%)
+        self.target_anti_dive_sv = 0.15  # Anti-dive fraction (0.5 means 50%)
         self.target_anti_lift_sv = 0.0  # Anti-lift fraction (0.0 means 0%)
 
         # Side-view reference coordinates [m]. The contact point is at origin.
@@ -148,7 +148,7 @@ class SuspensionR:
         self.caster_sv_deg = 0.0  # Caster angle [deg]
         self.kingpin_length_sv = 0.6  # Drawn kingpin-axis length [m]
         self.front_brake_bias_sv = 0.7  # Fraction of braking force at front axle
-        self.target_anti_dive_sv = 0.5  # Anti-dive fraction (0.5 means 50%)
+        self.target_anti_dive_sv = 0.15  # Anti-dive fraction (0.5 means 50%)
         self.target_anti_lift_sv = 0.0  # Anti-lift fraction (0.0 means 0%)
 
         # Side-view reference coordinates [m]. The contact point is at origin.

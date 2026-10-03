@@ -17,8 +17,7 @@ from visualization import LinkPlot, PointPlot, PolygonPlot
 car = Car()
 
 WHEEL_CENTER_X = 0.0
-AA_LOCAL_X = 0.0
-AA_LOCAL_Y = 0.5
+AA_POINT_LEFT = np.array([0.0, 0.5])
 P_TIE_LEFT = np.array([-0.30, 0.45])
 
 RACK_LENGTH = 0.5
@@ -84,15 +83,18 @@ class SteeringAssembly:
         )
 
         tie_position = np.array([P_TIE_LEFT[0], side * P_TIE_LEFT[1]])
+        aa_position = np.array([AA_POINT_LEFT[0], side * AA_POINT_LEFT[1]])
         self.tie_local = tie_position - self.wheel_center_initial
-        self.aa_local = np.array([AA_LOCAL_X, side * AA_LOCAL_Y])
-        half_width = car.tire_width / 2.0
-        half_diameter = car.free_radius
+        self.aa_local = aa_position - self.wheel_center_initial
+        self.aa_pivot_initial = aa_position.copy()
+        self.tie_from_aa_initial = tie_position - aa_position
+        half_length_x = car.free_radius
+        half_width_y = car.tire_width / 2.0
         wheel_local = [
-            np.array([-half_width, -half_diameter]),
-            np.array([half_width, -half_diameter]),
-            np.array([half_width, half_diameter]),
-            np.array([-half_width, half_diameter]),
+            np.array([-half_length_x, -half_width_y]),
+            np.array([half_length_x, -half_width_y]),
+            np.array([half_length_x, half_width_y]),
+            np.array([-half_length_x, half_width_y]),
         ]
 
         self.wheel_center = ge.Point(self.wheel_center_initial, f"{name} wheel center")
@@ -109,21 +111,20 @@ class SteeringAssembly:
         self.tire = ge.Polygon(self.wheel_points, name=f"{name} tire")
         self.rigid_body = ge.RigidBody2D(
             [self.wheel_center, self.tie_point, self.aa_point, *self.wheel_points],
-            reference_pair=(self.wheel_center, self.tie_point),
+            reference_pair=(self.aa_point, self.tie_point),
             name=f"{name} steering upright",
         )
-        self.aa_link = ge.Link(
-            self.wheel_center, self.aa_point, f"{name} AA reference"
+        self.upright_arm = ge.Link(
+            self.aa_point, self.tie_point, f"{name} AA to tie-rod pickup"
         )
         self.tie_rod = ge.Link(self.tie_point, rack_point, f"{name} tie rod")
         self.tie_rod_length = self.tie_rod.length
-        self.initial_tie_vector = self.tie_local.copy()
         self.body_angle = 0.0
         self.color = tire_color
 
     def add_to_scene(self, scene):
         scene.add(self.tire, facecolor="none", edgecolor=self.color, linewidth=2.2)
-        scene.add(self.aa_link, color="tab:green", linewidth=2)
+        scene.add(self.upright_arm, color="tab:green", linewidth=2)
         scene.add(self.tie_rod, color="tab:orange", linewidth=2)
         scene.add(self.wheel_center, color=self.color, markersize=5)
         scene.add(self.tie_point, color="tab:orange", markersize=5)
@@ -131,8 +132,8 @@ class SteeringAssembly:
 
     def solve_for_rack_point(self, rack_position):
         candidates = circle_intersections(
-            self.wheel_center_initial,
-            np.linalg.norm(self.initial_tie_vector),
+            self.aa_pivot_initial,
+            np.linalg.norm(self.tie_from_aa_initial),
             rack_position,
             self.tie_rod_length,
         )
@@ -140,18 +141,20 @@ class SteeringAssembly:
             return False
 
         def branch_cost(point):
-            vector = point - self.wheel_center_initial
+            vector = point - self.aa_pivot_initial
             angle = np.arctan2(vector[1], vector[0]) - np.arctan2(
-                self.initial_tie_vector[1], self.initial_tie_vector[0]
+                self.tie_from_aa_initial[1], self.tie_from_aa_initial[0]
             )
             return abs(np.arctan2(np.sin(angle - self.body_angle),
                                   np.cos(angle - self.body_angle)))
 
         tie_position = min(candidates, key=branch_cost)
-        self.rigid_body.update_from_two_points(self.wheel_center_initial, tie_position)
-        vector = tie_position - self.wheel_center_initial
+        self.rigid_body.update_from_two_points(
+            self.aa_pivot_initial, tie_position
+        )
+        vector = tie_position - self.aa_pivot_initial
         self.body_angle = np.arctan2(vector[1], vector[0]) - np.arctan2(
-            self.initial_tie_vector[1], self.initial_tie_vector[0]
+            self.tie_from_aa_initial[1], self.tie_from_aa_initial[0]
         )
         self.tie_rod.end.move(rack_position)
         return True
@@ -166,7 +169,7 @@ fig, ax = plt.subplots(figsize=FIGURE_SIZE)
 fig.subplots_adjust(bottom=0.18)
 scene = Scene(ax)
 
-# Rack position leaves useful travel before the
+# Keep the 0.5 m rack span. Its x position leaves useful travel before the
 # tie rods reach a fully extended, unsolvable configuration.
 rack_left = ge.Point([RACK_X, RACK_LENGTH / 2.0], "Rack left end")
 rack_right = ge.Point([RACK_X, -RACK_LENGTH / 2.0], "Rack right end")
@@ -191,7 +194,7 @@ ax.set_title("Top-View Steering Geometry")
 ax.legend(handles=[
     Line2D([0], [0], color="black", lw=3, label="Steering rack"),
     Line2D([0], [0], color="tab:orange", lw=2, label="Fixed-length tie rod"),
-    Line2D([0], [0], color="tab:green", lw=2, label="Rigid A-arm reference"),
+    Line2D([0], [0], color="tab:green", lw=2, label="Upright: AA to tie-rod pickup"),
     Line2D([0], [0], color="tab:blue", lw=2, label="Left tire"),
     Line2D([0], [0], color="tab:red", lw=2, label="Right tire"),
 ], loc="upper right", fontsize=8)
