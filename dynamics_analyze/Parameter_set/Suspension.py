@@ -128,7 +128,7 @@ class SuspensionLR:
         self.tau_rc = 0.005
 
         c_heave = 6000
-        c_roll = 50
+        c_roll = 1200
 
         k_heave = 18000
         k_roll = 40000#*0.8
