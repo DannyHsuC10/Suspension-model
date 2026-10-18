@@ -59,7 +59,7 @@ class SuspensionF:
         self.Au = 85 / 1000  # Upper upright point offset from wheel center [m]
         self.Al = 90 / 1000  # Lower upright point offset from wheel center [m]
 
-        # Chassis-side hard points: RL, LL, LU, RU, in that order [m].
+        # Chassis-side hard points: RL, LL, LU, RU, in that order [m]
         self.sus_contact = [
             (0.205, 0.08),
             (-0.205, 0.08),

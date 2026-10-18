@@ -261,139 +261,140 @@ class SideSuspension:
         return True
 
 
-fig, ax = plt.subplots(figsize=suspension_f.side_view_figure_size)
-fig.subplots_adjust(bottom=suspension_f.side_view_plot_bottom)
-scene = Scene(ax)
+if __name__ == '__main__':
+    fig, ax = plt.subplots(figsize=suspension_f.side_view_figure_size)
+    fig.subplots_adjust(bottom=suspension_f.side_view_plot_bottom)
+    scene = Scene(ax)
 
-# Swap the axle positions while retaining their direction signs: the front axle
-# is one wheelbase left of the rear axle in this plot.
-front_center_x = suspension_f.wheel_center_x_sv - car.l
-rear_center_x = suspension_f.wheel_center_x_sv
-front = SideSuspension(
-    "Front", suspension_f, axle_index=0, direction_sign=1.0,
-    center_x=front_center_x, color=STYLE["wheel"],
-)
-rear = SideSuspension(
-    "Rear", suspension_r, axle_index=1, direction_sign=-1.0,
-    center_x=rear_center_x, color=STYLE["wheel"],
-)
-front.add_to_scene(scene)
-rear.add_to_scene(scene)
+    # Swap the axle positions while retaining their direction signs: the front axle
+    # is one wheelbase left of the rear axle in this plot.
+    front_center_x = suspension_f.wheel_center_x_sv - car.l
+    rear_center_x = suspension_f.wheel_center_x_sv
+    front = SideSuspension(
+        "Front", suspension_f, axle_index=0, direction_sign=1.0,
+        center_x=front_center_x, color=STYLE["wheel"],
+    )
+    rear = SideSuspension(
+        "Rear", suspension_r, axle_index=1, direction_sign=-1.0,
+        center_x=rear_center_x, color=STYLE["wheel"],
+    )
+    front.add_to_scene(scene)
+    rear.add_to_scene(scene)
 
-# Connect front/rear tire contact points and extend the same line at both ends.
-contact_axis_start = ge.Point(front.contact_pt.pos, "Contact axis start")
-contact_axis_end = ge.Point(rear.contact_pt.pos, "Contact axis end")
-contact_axis = ge.Link(
-    contact_axis_start, contact_axis_end, "Extended tire-contact axis"
-)
-scene.add(contact_axis, color="0.25", linestyle="--", linewidth=1.5)
-
-
-def update_contact_axis():
-    front_contact = front.contact_pt.pos
-    rear_contact = rear.contact_pt.pos
-    span = rear_contact - front_contact
-    contact_axis_start.move(front_contact - span)
-    contact_axis_end.move(rear_contact + span)
+    # Connect front/rear tire contact points and extend the same line at both ends.
+    contact_axis_start = ge.Point(front.contact_pt.pos, "Contact axis start")
+    contact_axis_end = ge.Point(rear.contact_pt.pos, "Contact axis end")
+    contact_axis = ge.Link(
+        contact_axis_start, contact_axis_end, "Extended tire-contact axis"
+    )
+    scene.add(contact_axis, color="0.25", linestyle="--", linewidth=1.5)
 
 
-update_contact_axis()
-
-# The pitch center is the intersection of the front and rear contact-to-IC
-# lines. Keep the initial location as a fixed reference and update PC live.
-pitch_center_initial = ga.SusGeometryHelper.line_intersection(
-    front.contact_point,
-    front.initial_ic,
-    rear.contact_point,
-    rear.initial_ic,
-)
-if pitch_center_initial is None:
-    raise ValueError("Front and rear contact-to-IC lines do not define an initial PC.")
-pc_initial_pt = ge.Point(pitch_center_initial, "Initial PC")
-pc_pt = ge.Point(pitch_center_initial, "PC")
-scene.add(pc_initial_pt, color=STYLE["pitch_center_initial"], markersize=8)
-scene.add(pc_pt, color=STYLE["pitch_center"], markersize=10)
-
-ax.axhline(0.0, color="black", linewidth=1)
-ax.axvline(front_center_x, color="0.5", linestyle=":", linewidth=1)
-ax.axvline(rear_center_x, color="0.5", linestyle=":", linewidth=1)
-ax.set_aspect("equal", adjustable="datalim")
-ax.grid(True)
-ax.set_xlabel("Longitudinal X [m]")
-ax.set_ylabel("Vertical Y [m]")
-ax.set_title("Front and Rear Side-View Suspension Geometry")
-
-legend_handles = [
-    Line2D([0], [0], color=STYLE["wheel"], lw=2, label="Wheel outline"),
-    Line2D([0], [0], color=STYLE["kingpin"], lw=2, label="Kingpin"),
-    Line2D([0], [0], color=STYLE["svsa"], lw=2, label="Contact point to IC"),
-    Line2D([0], [0], color=STYLE["ic_links"], linestyle="--", label="Au/Al to IC"),
-    Line2D([0], [0], color=STYLE["travel_paths"], linestyle="-.", label="Au/Al travel paths"),
-    Line2D([0], [0], color=STYLE["anti_lift"], linestyle=":", label="Wheel center to IC"),
-    Line2D([0], [0], color=STYLE["initial_ic"], marker="o", linestyle="none", label="Initial IC"),
-    Line2D([0], [0], color=STYLE["current_ic"], marker="o", linestyle="none", label="Current IC"),
-    Line2D([0], [0], color=STYLE["contact"], marker="o", linestyle="none", label="Contact point"),
-    Line2D([0], [0], color=STYLE["pitch_center_initial"], marker="o", linestyle="none", label="Initial PC"),
-    Line2D([0], [0], color=STYLE["pitch_center"], marker="o", linestyle="none", label="Current PC"),
-]
-ax.legend(handles=legend_handles, loc="best", fontsize=8)
-pc_initial_label = ax.annotate(
-    "PC₀", xy=pc_initial_pt.pos, xytext=(6, 6), textcoords="offset points",
-    color=STYLE["pitch_center_initial"], fontsize=9,
-)
-pc_label = ax.annotate(
-    "PC", xy=pc_pt.pos, xytext=(6, -10), textcoords="offset points",
-    color=STYLE["pitch_center"], fontsize=9,
-)
-
-front_slider_ax = fig.add_axes(suspension_f.side_view_slider_axes[0])
-rear_slider_ax = fig.add_axes(suspension_f.side_view_slider_axes[1])
-front_slider = Slider(
-    front_slider_ax,
-    "Front Al height [m]",
-    front.al_pt.y - suspension_f.side_view_travel_limit,
-    front.al_pt.y + suspension_f.side_view_travel_limit,
-    valinit=front.al_pt.y,
-)
-rear_slider = Slider(
-    rear_slider_ax,
-    "Rear Al height [m]",
-    rear.al_pt.y - suspension_r.side_view_travel_limit,
-    rear.al_pt.y + suspension_r.side_view_travel_limit,
-    valinit=rear.al_pt.y,
-)
+    def update_contact_axis():
+        front_contact = front.contact_pt.pos
+        rear_contact = rear.contact_pt.pos
+        span = rear_contact - front_contact
+        contact_axis_start.move(front_contact - span)
+        contact_axis_end.move(rear_contact + span)
 
 
-def update(_value):
-    front_ok = front.update_geometry(front_slider.val)
-    rear_ok = rear.update_geometry(rear_slider.val)
-    pc_position = None
-    if front_ok and rear_ok:
-        pc_position = ga.SusGeometryHelper.line_intersection(
-            front.contact_pt,
-            front.ic_pt,
-            rear.contact_pt,
-            rear.ic_pt,
-        )
-    if pc_position is not None:
-        pc_pt.move(pc_position)
-        pc_label.xy = pc_pt.pos
     update_contact_axis()
-    scene.update()
 
-    if front_ok and rear_ok and pc_position is not None:
-        front_svsa = front.ic_pt.x - front.contact_pt.x
-        rear_svsa = rear.contact_pt.x - rear.ic_pt.x
-        ax.set_title(
-            "Front and Rear Side-View Suspension Geometry | "
-            f"Front SVSA={front_svsa:.3f} m, Rear SVSA={rear_svsa:.3f} m | "
-            f"PC=({pc_pt.x:.3f}, {pc_pt.y:.3f}) m"
-        )
-    else:
-        ax.set_title("Requested position has no valid rigid pose, IC, or PC")
-    fig.canvas.draw_idle()
+    # The pitch center is the intersection of the front and rear contact-to-IC
+    # lines. Keep the initial location as a fixed reference and update PC live.
+    pitch_center_initial = ga.SusGeometryHelper.line_intersection(
+        front.contact_point,
+        front.initial_ic,
+        rear.contact_point,
+        rear.initial_ic,
+    )
+    if pitch_center_initial is None:
+        raise ValueError("Front and rear contact-to-IC lines do not define an initial PC.")
+    pc_initial_pt = ge.Point(pitch_center_initial, "Initial PC")
+    pc_pt = ge.Point(pitch_center_initial, "PC")
+    scene.add(pc_initial_pt, color=STYLE["pitch_center_initial"], markersize=8)
+    scene.add(pc_pt, color=STYLE["pitch_center"], markersize=10)
+
+    ax.axhline(0.0, color="black", linewidth=1)
+    ax.axvline(front_center_x, color="0.5", linestyle=":", linewidth=1)
+    ax.axvline(rear_center_x, color="0.5", linestyle=":", linewidth=1)
+    ax.set_aspect("equal", adjustable="datalim")
+    ax.grid(True)
+    ax.set_xlabel("Longitudinal X [m]")
+    ax.set_ylabel("Vertical Y [m]")
+    ax.set_title("Front and Rear Side-View Suspension Geometry")
+
+    legend_handles = [
+        Line2D([0], [0], color=STYLE["wheel"], lw=2, label="Wheel outline"),
+        Line2D([0], [0], color=STYLE["kingpin"], lw=2, label="Kingpin"),
+        Line2D([0], [0], color=STYLE["svsa"], lw=2, label="Contact point to IC"),
+        Line2D([0], [0], color=STYLE["ic_links"], linestyle="--", label="Au/Al to IC"),
+        Line2D([0], [0], color=STYLE["travel_paths"], linestyle="-.", label="Au/Al travel paths"),
+        Line2D([0], [0], color=STYLE["anti_lift"], linestyle=":", label="Wheel center to IC"),
+        Line2D([0], [0], color=STYLE["initial_ic"], marker="o", linestyle="none", label="Initial IC"),
+        Line2D([0], [0], color=STYLE["current_ic"], marker="o", linestyle="none", label="Current IC"),
+        Line2D([0], [0], color=STYLE["contact"], marker="o", linestyle="none", label="Contact point"),
+        Line2D([0], [0], color=STYLE["pitch_center_initial"], marker="o", linestyle="none", label="Initial PC"),
+        Line2D([0], [0], color=STYLE["pitch_center"], marker="o", linestyle="none", label="Current PC"),
+    ]
+    ax.legend(handles=legend_handles, loc="best", fontsize=8)
+    pc_initial_label = ax.annotate(
+        "PC₀", xy=pc_initial_pt.pos, xytext=(6, 6), textcoords="offset points",
+        color=STYLE["pitch_center_initial"], fontsize=9,
+    )
+    pc_label = ax.annotate(
+        "PC", xy=pc_pt.pos, xytext=(6, -10), textcoords="offset points",
+        color=STYLE["pitch_center"], fontsize=9,
+    )
+
+    front_slider_ax = fig.add_axes(suspension_f.side_view_slider_axes[0])
+    rear_slider_ax = fig.add_axes(suspension_f.side_view_slider_axes[1])
+    front_slider = Slider(
+        front_slider_ax,
+        "Front Al height [m]",
+        front.al_pt.y - suspension_f.side_view_travel_limit,
+        front.al_pt.y + suspension_f.side_view_travel_limit,
+        valinit=front.al_pt.y,
+    )
+    rear_slider = Slider(
+        rear_slider_ax,
+        "Rear Al height [m]",
+        rear.al_pt.y - suspension_r.side_view_travel_limit,
+        rear.al_pt.y + suspension_r.side_view_travel_limit,
+        valinit=rear.al_pt.y,
+    )
 
 
-front_slider.on_changed(update)
-rear_slider.on_changed(update)
-plt.show()
+    def update(_value):
+        front_ok = front.update_geometry(front_slider.val)
+        rear_ok = rear.update_geometry(rear_slider.val)
+        pc_position = None
+        if front_ok and rear_ok:
+            pc_position = ga.SusGeometryHelper.line_intersection(
+                front.contact_pt,
+                front.ic_pt,
+                rear.contact_pt,
+                rear.ic_pt,
+            )
+        if pc_position is not None:
+            pc_pt.move(pc_position)
+            pc_label.xy = pc_pt.pos
+        update_contact_axis()
+        scene.update()
+
+        if front_ok and rear_ok and pc_position is not None:
+            front_svsa = front.ic_pt.x - front.contact_pt.x
+            rear_svsa = rear.contact_pt.x - rear.ic_pt.x
+            ax.set_title(
+                "Front and Rear Side-View Suspension Geometry | "
+                f"Front SVSA={front_svsa:.3f} m, Rear SVSA={rear_svsa:.3f} m | "
+                f"PC=({pc_pt.x:.3f}, {pc_pt.y:.3f}) m"
+            )
+        else:
+            ax.set_title("Requested position has no valid rigid pose, IC, or PC")
+        fig.canvas.draw_idle()
+
+
+    front_slider.on_changed(update)
+    rear_slider.on_changed(update)
+    plt.show()

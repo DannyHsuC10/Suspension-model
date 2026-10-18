@@ -12,19 +12,25 @@ class Suspension_A:
         1. 測試的時候先用LinearKC進行,之後要改其他的還有更多擴充
         2. corner_fl is for 直推,可以用這個來驗證車體的左右耦合是否正常
         3. 車輛單輪禿然受到大量衝擊是有可能扭轉1deg以上的
+
+        heave_f = LinearKC(k=35000,c=3350,name="heave_f")# 30000
+        heave_r = LinearKC(k=31500,c=3175,name="heave_r")# 28000
+        roll_f = LinearKC(k=20000,c=2500,name="roll_f")#25000
+        roll_r = LinearKC(k=18000,c=2400,name="roll_r")#22000
+
         """
 
-        heave_f = LinearKC(k=11000,c=1200,name="heave_f")# 30000
-        heave_r = LinearKC(k=11000,c=1200,name="heave_r")# 28000
-        roll_f = LinearKC(k=11000,c=1200,name="roll_f")#25000
-        roll_r = LinearKC(k=11000,c=1200,name="roll_r")#22000
+        heave_f = LinearKC(k=35000,c=3350,name="heave_f")# 30000
+        heave_r = LinearKC(k=31500,c=3175,name="heave_r")# 28000
+        roll_f = LinearKC(k=20000,c=2500,name="roll_f")#25000
+        roll_r = LinearKC(k=18000,c=2400,name="roll_r")#22000
 
 
         roll_c = NullKC()
-        warp = LinearKC(k=5000,c=1500,name="warp")
+        warp = LinearKC(k=0.0,c=0.0,name="warp")
 
         # 扭轉剛性需要換成rad 車架設定一個小小阻尼
-        self.body_twist = LinearKC(k=180000,c=50,name="body_twist")
+        self.body_twist = LinearKC(k=180000,c=300,name="body_twist")
         
         corner_fl = NullKC()
         corner_fr = NullKC()
@@ -32,10 +38,10 @@ class Suspension_A:
         corner_rr = NullKC()
 
         # 輪胎保持一個小小阻尼
-        tire_fl = LinearKC(k=80000,c=50,name="tire_fl")
-        tire_fr = LinearKC(k=80000,c=50,name="tire_fr")
-        tire_rl = LinearKC(k=80000,c=50,name="tire_rl")
-        tire_rr = LinearKC(k=80000,c=50,name="tire_rr")
+        tire_fl = LinearKC(k=80000,c=300,name="tire_fl")
+        tire_fr = LinearKC(k=80000,c=300,name="tire_fr")
+        tire_rl = LinearKC(k=80000,c=300,name="tire_rl")
+        tire_rr = LinearKC(k=80000,c=300,name="tire_rr")
 
 
 

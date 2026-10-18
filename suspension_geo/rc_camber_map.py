@@ -54,76 +54,47 @@ for idx, data in enumerate(dataset):
     rc_y_matrix[i, j] = rc[1]
 
 # ==============================================================================
-# 3. 繪製圖表 - 格式 1：Left & Right Camber 3D 曲面圖
-# ==============================================================================
-fig1 = plt.figure(figsize=(16, 7))
+# 3. Independent left/right wheel travel maps
+# X and Y are independently controlled wheel travels; Z is the measured response.
+right_travel_mm = right_travel_matrix * 1000.0
+left_travel_mm = left_travel_matrix * 1000.0
+rc_x_mm = rc_x_matrix * 1000.0
+rc_y_mm = rc_y_matrix * 1000.0
 
-# 單位轉換：米 (m) 轉 毫米 (mm)
-Heave_mm = heave_matrix * 1000
-Roll_deg = roll_matrix
+fig = plt.figure(figsize=(16, 12))
+surface_specs = [
+    (camber_left_matrix, "Left Camber vs. Left/Right Wheel Travel", "Left Camber [deg]", "plasma"),
+    (camber_right_matrix, "Right Camber vs. Left/Right Wheel Travel", "Right Camber [deg]", "viridis"),
+    (rc_y_mm, "Roll Center Height vs. Left/Right Wheel Travel", "RC Height Y [mm]", "coolwarm"),
+    (rc_x_mm, "Roll Center Longitudinal Position vs. Wheel Travel", "RC Position X [mm]", "cividis"),
+]
 
-# 圖一：3D 曲面 (Heave & Roll vs. Left Camber)
-ax1 = fig1.add_subplot(1, 2, 1, projection="3d")
-surf1 = ax1.plot_surface(
-    Heave_mm, Roll_deg, camber_left_matrix, cmap="plasma", edgecolor="none", alpha=0.85
-)
-ax1.set_title("3D Surface: Left Camber vs. Heave & Roll")
-ax1.set_xlabel("Heave [mm]")
-ax1.set_ylabel("Roll Angle [deg]")
-ax1.set_zlabel("Left Camber [deg]")
-fig1.colorbar(surf1, ax=ax1, shrink=0.5, aspect=10, label="Camber [deg]")
+for index, (response, title, z_label, cmap) in enumerate(surface_specs, start=1):
+    ax = fig.add_subplot(2, 2, index, projection="3d")
+    surface = ax.plot_surface(
+        right_travel_mm, left_travel_mm, response,
+        cmap=cmap, edgecolor="none", alpha=0.9,
+    )
+    ax.set_title(title)
+    ax.set_xlabel("Right Wheel Travel [mm]")
+    ax.set_ylabel("Left Wheel Travel [mm]")
+    ax.set_zlabel(z_label)
+    fig.colorbar(surface, ax=ax, shrink=0.58, aspect=12, pad=0.08, label=z_label)
 
-# 圖二：3D 曲面 (Heave & Roll vs. Right Camber)
-ax2 = fig1.add_subplot(1, 2, 2, projection="3d")
-surf2 = ax2.plot_surface(
-    Heave_mm, Roll_deg, camber_right_matrix, cmap="viridis", edgecolor="none", alpha=0.85
-)
-ax2.set_title("3D Surface: Right Camber vs. Heave & Roll")
-ax2.set_xlabel("Heave [mm]")
-ax2.set_ylabel("Roll Angle [deg]")
-ax2.set_zlabel("Right Camber [deg]")
-fig1.colorbar(surf2, ax=ax2, shrink=0.5, aspect=10, label="Camber [deg]")
-
-plt.tight_layout()
+fig.suptitle("Front-View Suspension Map: Two Independent Wheel Degrees of Freedom", fontsize=15)
+fig.tight_layout()
 plt.show()
 
-# ==============================================================================
-# 4. 繪製圖表 - 格式 2：Roll Center 軌跡與 3D 高度變化曲面圖
-# ==============================================================================
-fig2 = plt.figure(figsize=(15, 6))
-
-# 左圖：Roll Center 2D 軌跡散佈圖
-ax1_2 = fig2.add_subplot(1, 2, 1)
-sc = ax1_2.scatter(
-    rc_x_matrix.flatten(),
-    rc_y_matrix.flatten(),
-    c=left_travel_matrix.flatten(),
-    cmap="viridis",
-    s=15,
+# Complementary roll-center migration cloud.
+fig_rc, ax_rc = plt.subplots(figsize=(8, 6))
+scatter = ax_rc.scatter(
+    rc_x_matrix.flatten(), rc_y_matrix.flatten(),
+    c=left_travel_mm.flatten(), cmap="viridis", s=15,
 )
-ax1_2.set_title("Dynamic Roll Center Migration Cloud")
-ax1_2.set_xlabel("RC X Position [m]")
-ax1_2.set_ylabel("RC Y Position [m]")
-ax1_2.grid(True)
-fig2.colorbar(sc, ax=ax1_2, label="Left Travel [m]")
-
-# 右圖：3D 曲面圖 (Roll Center Y Height 隨左右輪行程變化)
-ax2_2 = fig2.add_subplot(1, 2, 2, projection="3d")
-
-# 將座標單位轉成 mm 增加可讀性
-X_mm = right_travel_matrix * 1000
-Y_mm = left_travel_matrix * 1000
-Z_mm = rc_y_matrix * 1000
-
-surf_rc = ax2_2.plot_surface(
-    X_mm, Y_mm, Z_mm, cmap="coolwarm", edgecolor="none", alpha=0.9
-)
-
-ax2_2.set_title("3D Surface: RC Height vs. Wheel Travel")
-ax2_2.set_xlabel("Right Wheel Travel [mm]")
-ax2_2.set_ylabel("Left Wheel Travel [mm]")
-ax2_2.set_zlabel("Roll Center Y [mm]")
-fig2.colorbar(surf_rc, ax=ax2_2, shrink=0.5, aspect=10, label="RC Y Height [mm]")
-
-plt.tight_layout()
+ax_rc.set_title("Dynamic Roll Center Migration")
+ax_rc.set_xlabel("RC X Position [m]")
+ax_rc.set_ylabel("RC Y Position [m]")
+ax_rc.grid(True)
+fig_rc.colorbar(scatter, ax=ax_rc, label="Left Wheel Travel [mm]")
+fig_rc.tight_layout()
 plt.show()

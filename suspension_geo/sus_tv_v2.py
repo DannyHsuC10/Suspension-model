@@ -24,10 +24,11 @@ RACK_LENGTH = 0.5
 RACK_X = -0.4
 RACK_TRAVEL_LIMIT = 0.025
 
-FIGURE_SIZE = (8, 8)
+FIGURE_SIZE = (13, 8)
 PLOT_X_LIMITS = (-0.9, 0.45)
 PLOT_Y_LIMITS = (-0.95, 0.95)
-SLIDER_AXES = (0.20, 0.07, 0.62, 0.035)
+SLIDER_AXES = (0.12, 0.055, 0.38, 0.035)
+STEERING_SWEEP_SAMPLES = 201
 
 
 class Scene:
@@ -165,8 +166,14 @@ class SteeringAssembly:
         return np.degrees(np.arctan2(rotated_y[0], rotated_y[1]))
 
 
-fig, ax = plt.subplots(figsize=FIGURE_SIZE)
-fig.subplots_adjust(bottom=0.18)
+fig = plt.figure(figsize=FIGURE_SIZE)
+grid = fig.add_gridspec(
+    2, 2, left=0.07, right=0.97, top=0.94, bottom=0.17,
+    width_ratios=(1.25, 1.0), hspace=0.34, wspace=0.30,
+)
+ax = fig.add_subplot(grid[:, 0])
+ax_steering = fig.add_subplot(grid[0, 1])
+ax_difference = fig.add_subplot(grid[1, 1], sharex=ax_steering)
 scene = Scene(ax)
 
 # Keep the 0.5 m rack span. Its x position leaves useful travel before the
@@ -181,6 +188,60 @@ right.add_to_scene(scene)
 scene.add(rack, color="black", linewidth=3)
 scene.add(rack_left, color="black", markersize=6)
 scene.add(rack_right, color="black", markersize=6)
+
+
+def calculate_steering_sweep():
+    """Precompute both wheel angles and their difference over rack travel."""
+    travel = np.linspace(
+        -RACK_TRAVEL_LIMIT, RACK_TRAVEL_LIMIT, STEERING_SWEEP_SAMPLES
+    )
+    sweep_left_rack = ge.Point([RACK_X, RACK_LENGTH / 2.0], "Sweep rack left")
+    sweep_right_rack = ge.Point([RACK_X, -RACK_LENGTH / 2.0], "Sweep rack right")
+    sweep_left = SteeringAssembly("Sweep left", +1.0, car, sweep_left_rack, "tab:blue")
+    sweep_right = SteeringAssembly("Sweep right", -1.0, car, sweep_right_rack, "tab:red")
+    left_angles = np.full(travel.shape, np.nan)
+    right_angles = np.full(travel.shape, np.nan)
+    for index, dy in enumerate(travel):
+        sweep_left_rack.move(np.array([RACK_X, RACK_LENGTH / 2.0 + dy]))
+        sweep_right_rack.move(np.array([RACK_X, -RACK_LENGTH / 2.0 + dy]))
+        if (sweep_left.solve_for_rack_point(sweep_left_rack.pos)
+                and sweep_right.solve_for_rack_point(sweep_right_rack.pos)):
+            left_angles[index] = sweep_left.tire_angle_from_y_deg
+            right_angles[index] = sweep_right.tire_angle_from_y_deg
+    return travel, left_angles, right_angles, left_angles - right_angles
+
+
+steering_sweep, left_sweep_angle, right_sweep_angle, sweep_angle_difference = (
+    calculate_steering_sweep()
+)
+ax_steering.plot(
+    steering_sweep * 1000.0, left_sweep_angle, color="tab:blue", label="Left wheel"
+)
+ax_steering.plot(
+    steering_sweep * 1000.0, right_sweep_angle, color="tab:red", label="Right wheel"
+)
+ax_steering.set_title("Left and Right Wheel Steering Angles")
+ax_steering.set_ylabel("Wheel angle [deg]")
+ax_steering.grid(True, linestyle=":")
+ax_steering.legend(loc="best")
+ax_steering.tick_params(labelbottom=False)
+
+ax_difference.plot(
+    steering_sweep * 1000.0, sweep_angle_difference,
+    color="tab:purple", label="Left − right",
+)
+ax_difference.set_title("Left–Right Wheel Angle Difference")
+ax_difference.set_xlabel("Rack lateral travel [mm]")
+ax_difference.set_ylabel("Angle difference [deg]")
+ax_difference.grid(True, linestyle=":")
+ax_difference.legend(loc="best")
+
+current_markers = [
+    ax_steering.axvline(0.0, color="black", linestyle="--", linewidth=1.3,
+                        label="Current rack position"),
+    ax_difference.axvline(0.0, color="black", linestyle="--", linewidth=1.3,
+                          label="Current rack position"),
+]
 
 ax.axvline(0.0, color="0.55", linestyle="--", linewidth=1, label="Vehicle y-axis")
 ax.axhline(0.0, color="0.75", linewidth=0.8)
@@ -216,6 +277,8 @@ def update(_value):
     left_ok = left.solve_for_rack_point(rack_left.pos)
     right_ok = right.solve_for_rack_point(rack_right.pos)
     scene.update()
+    for marker in current_markers:
+        marker.set_xdata([dy * 1000.0, dy * 1000.0])
 
     if left_ok and right_ok:
         angle_delta = left.tire_angle_from_y_deg - right.tire_angle_from_y_deg
