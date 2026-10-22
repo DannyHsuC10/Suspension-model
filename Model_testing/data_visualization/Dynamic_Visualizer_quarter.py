@@ -182,7 +182,7 @@ class Visualizer:
                 data,
                 label=label
             )
-            self._annotate_extrema(ax, data, label, line.get_color())
+            self._mark_extrema(ax, data, line.get_color())
 
         if ylabel:
             ax.set_ylabel(ylabel)
@@ -190,7 +190,7 @@ class Visualizer:
         ax.legend()
         ax.grid()
 
-    def _annotate_extrema(self, ax, data, label, color):
+    def _mark_extrema(self, ax, data, color):
         data = np.asarray(data)
         mask = np.isfinite(data)
 
@@ -203,16 +203,12 @@ class Visualizer:
         max_i = valid_index[np.argmax(valid_data)]
         min_i = valid_index[np.argmin(valid_data)]
 
-        points = [
-            ("max", max_i, -20),
-        ]
+        points = [max_i]
 
         if min_i != max_i:
-            points.append(("min", min_i, 20))
-        else:
-            points[0] = ("max=min", max_i, -20)
+            points.append(min_i)
 
-        for name, i, y_offset in points:
+        for i in points:
             x = self.time[i]
             y = data[i]
 
@@ -222,20 +218,6 @@ class Visualizer:
                 color=color,
                 s=25,
                 zorder=5
-            )
-
-            ax.annotate(
-                f"{label} {name}: {y:.3g}",
-                xy=(x, y),
-                xytext=(8, y_offset),
-                textcoords="offset points",
-                fontsize=8,
-                color=color,
-                arrowprops={
-                    "arrowstyle": "->",
-                    "color": color,
-                    "lw": 0.8
-                }
             )
 
     def _create_cursor(self, ax):

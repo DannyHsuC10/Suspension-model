@@ -1,95 +1,55 @@
+"""Single-wheel inputs. All excitations start at 0.25 s by default."""
 import numpy as np
 
 
-def road_step(state, h=0.01, start=0.5):# Step input (躍階)
-    """Step input"""
-
-    if state.t > start:
-        state.zr = h
-    else:
-        state.zr = 0.0
-
+def road_step(state, h=0.01, start=0.25):
+    state.zr = h if state.t >= start else 0.0
     state.vzr = 0.0
 
-def road_impulse(state,h = 0.01,start = 0.5,duration = 0.1):# impulse input (衝擊)
-    
-    if start < state.t < start + duration:
-        state.zr = h
+def road_bump(state, height=0.01, start=0.25, duration=0.2):
+    if start <= state.t < start + duration:
+        phase = np.pi * (state.t - start) / duration
+        state.zr = height * np.sin(phase)
+        state.vzr = height * np.pi / duration * np.cos(phase)
     else:
-        state.zr = 0.0
-    state.vzr = 0
+        state.zr = state.vzr = 0.0
 
-def road_bump(state, height=0.01, start=0.5, duration=0.2):# Bump input (凸起)
-    """Half sine bump"""
 
-    if start < state.t < start + duration:
-
-        x = (state.t - start) / duration
-
-        state.zr = height * np.sin(np.pi * x)
-
-        state.vzr = (
-            height
-            * np.pi
-            / duration
-            * np.cos(np.pi * x)
-        )
-
+def road_sine(state, amplitude=0.01, frequency=5, start=0.25):
+    if state.t >= start:
+        w = 2 * np.pi * frequency
+        phase = w * (state.t - start)
+        state.zr = amplitude * np.sin(phase)
+        state.vzr = amplitude * w * np.cos(phase)
     else:
-        state.zr = 0.0
-        state.vzr = 0.0
+        state.zr = state.vzr = 0.0
 
-def road_sine(state, amplitude=0.01, frequency=5):# Sin road (正弦路面)
-    """Sin road"""
-
-    w = 2 * np.pi * frequency
-
-    state.zr = amplitude * np.sin(w * state.t)
-
-    state.vzr = amplitude * w * np.cos(w * state.t)
 
 class RandomRoad:
-    """
-    Random road
-    """
+    """Seeded piecewise-constant road, independent for each experiment."""
 
-    def __init__(
-        self,
-        amplitude=0.01,
-        dt_update=0.01,
-        seed=0
-    ):
-
+    def __init__(self, amplitude=0.01, dt_update=0.01, seed=0, start=0.25):
+        if dt_update <= 0:
+            raise ValueError("dt_update must be positive")
         self.amplitude = amplitude
         self.dt_update = dt_update
-
+        self.start = start
         self.rng = np.random.default_rng(seed)
-
         self.last_t = None
         self.zr = 0.0
 
     def __call__(self, state):
-
+        if state.t < self.start:
+            state.zr = state.vzr = 0.0
+            return
         if self.last_t is None:
+            self.last_t = self.start - self.dt_update
+        elapsed = state.t - self.last_t
+        if elapsed + 1e-12 >= self.dt_update:
+            old_zr = self.zr
+            self.zr = self.rng.uniform(-1, 1) * self.amplitude
+            state.vzr = (self.zr - old_zr) / elapsed
             self.last_t = state.t
-
-        if state.t - self.last_t >= self.dt_update:
-
-            zr_old = self.zr
-
-            self.zr = (
-                self.rng.uniform(-1, 1)
-                * self.amplitude
-            )
-
-            state.vzr = (
-                self.zr - zr_old
-            ) / (state.t - self.last_t)
-
-            self.last_t = state.t
-
         else:
-
             state.vzr = 0.0
-
         state.zr = self.zr
