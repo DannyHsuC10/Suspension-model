@@ -453,7 +453,11 @@ class SuspensionDirectSolver:
             ]
 
         # 初始猜測值取當前角度
-        guess = [self.left_sus.lower_arm.angle, self.right_sus.lower_arm.angle]
+        # Both sides use the right-side angle convention; the left-side
+        # mirrored link's geometric angle is pi - theta and is not a valid
+        # initial guess for simulate_side_theta().
+        theta0 = self.right_sus.lower_arm.angle
+        guess = [theta0, theta0]
 
         # 執行非線性求解
         solved_thetas, info, ier, mesg = fsolve(
@@ -487,7 +491,9 @@ class SuspensionDirectSolver:
                 current_roll - target_roll_rad,
             ]
 
-        guess = [self.left_sus.lower_arm.angle, self.right_sus.lower_arm.angle]
+        # Left-side theta follows the right-side angle convention as well.
+        theta0 = self.right_sus.lower_arm.angle
+        guess = [theta0, theta0]
 
         solved_thetas, info, ier, mesg = fsolve(
             pose_residuals, guess, full_output=True

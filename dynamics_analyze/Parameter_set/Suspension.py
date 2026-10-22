@@ -12,7 +12,7 @@ class SuspensionQuarter:
         # heave 70000
         # heave tender = 28000
         # ks avg = 34000
-        self.ks = 40000   # 懸吊 stiffness
+        self.ks = 70000   # 懸吊 stiffness
 
         zeta = 0.7           # Damping ratio
         self.cs = 2 * zeta * np.sqrt(self.ks * self.mu)   # 單角 damping
@@ -40,7 +40,7 @@ class SuspensionQuartertender:
         # heave 70000
         # heave tender = 28000
         # ks avg = 34000
-        self.ks = 34000   # 懸吊 stiffness
+        self.ks = 70000*0.34   # 懸吊 stiffness
 
         zeta = 0.7           # Damping ratio
         self.cs = 2 * zeta * np.sqrt(self.ks * self.mu)   # 單角 damping
@@ -68,7 +68,7 @@ class SuspensionQuarteravg:
         # heave 70000
         # heave tender = 28000
         # ks avg = 34000
-        self.ks = 40000   # 懸吊 stiffness
+        self.ks = (36000+50000)/2   # 懸吊 stiffness
 
         zeta = 0.7           # Damping ratio
         self.cs = 2 * zeta * np.sqrt(self.ks * self.mu)   # 單角 damping
@@ -96,7 +96,7 @@ class SuspensionQuarterheave:
         # heave 70000
         # heave tender = 28000
         # ks avg = 34000
-        self.ks = 28000   # 懸吊 stiffness
+        self.ks = 70000   # 懸吊 stiffness
 
         zeta = 0.7           # Damping ratio
         self.cs = 2 * zeta * np.sqrt(self.ks * self.mu)   # 單角 damping
