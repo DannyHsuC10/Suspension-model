@@ -5,9 +5,9 @@ from data_visualization.Dynamic_Visualizer_quarter import Visualizer
 from data_visualization.Dynamic_Visualizer_pitch import PitchCarVisualizer
 from data_visualization.Simulation_Logger import SimulationLogger
 
-from Parameter_set.Suspension import SuspensionFR
-from Parameter_set.suspension_state import quarter_suspension_state,FR_suspension_state
-from model import FR_model as sm
+from suspension_set.Suspension import SuspensionFR
+from suspension_set.suspension_state import quarter_suspension_state,FR_suspension_state
+from dynamics_analyze.suspension_set import model as sm
 from road import FR_road as hr
 
 current_dir = Path(__file__).resolve().parent

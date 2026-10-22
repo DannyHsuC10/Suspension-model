@@ -6,9 +6,9 @@ import copy
 from data_visualization.Dynamic_Visualizer_roll import RollCarVisualizer
 from data_visualization.Simulation_Logger import SimulationLogger
 
-from Parameter_set.Suspension import SuspensionLR
-from Parameter_set.suspension_state import quarter_suspension_state,LR_suspension_state
-from model import LR_model as sm
+from suspension_set.Suspension import SuspensionLR
+from suspension_set.suspension_state import quarter_suspension_state,LR_suspension_state
+from dynamics_analyze.suspension_set import model as sm
 from road import LR_road as hr
 
 current_dir = Path(__file__).resolve().parent

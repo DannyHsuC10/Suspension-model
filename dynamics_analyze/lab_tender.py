@@ -4,14 +4,14 @@ from pathlib import Path
 
 from data_visualization.Dynamic_Visualizer_quarter import Visualizer
 from data_visualization.Simulation_Logger import SimulationLogger
-from Parameter_set.Suspension import (
+from suspension_set.Suspension import (
     SuspensionQuarteravg,
     SuspensionQuarterheave,
     SuspensionQuartertender,
 )
-from Parameter_set.suspension_state import quarter_suspension_state
+from suspension_set.suspension_state import quarter_suspension_state
 from road import quarter_road as qr
-from model import quarter_model as sm
+from dynamics_analyze.suspension_set import model as sm
 
 
 current_dir = Path(__file__).resolve().parent

@@ -11,14 +11,6 @@ def road_step(state, h=0.01, start=0.5):# Step input (躍階)
 
     state.vzr = 0.0
 
-def road_impulse(state,h = 0.01,start = 0.5,duration = 0.1):# impulse input (衝擊)
-    
-    if start < state.t < start + duration:
-        state.zr = h
-    else:
-        state.zr = 0.0
-    state.vzr = 0
-
 def road_bump(state, height=0.01, start=0.5, duration=0.2):# Bump input (凸起)
     """Half sine bump"""
 

@@ -7,6 +7,7 @@ Tire_Z_Rigidity/data/Filtered_data/
 Tire_Z_Rigidity/Filter/Filtering_Limits_stage.json
 Tire_Z_Rigidity/Figures/*.png
 result.md
+Model_testing/batch_results/
 # 編譯或暫存檔
 *.log
 *.tmp

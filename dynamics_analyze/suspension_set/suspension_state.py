@@ -96,7 +96,6 @@ class LR_suspension_state:
         self.v_frame += self.a_frame*self.dt
         self.d_frame += self.v_frame*self.dt
 
-
 class FR_suspension_state:
     
     def __init__(self,front,rear,dt = 0.001):
@@ -191,6 +190,3 @@ class FR_suspension_state:
 
         self.pitch_rate += self.alpha_pitch*self.dt
         self.pitch += self.pitch_rate*self.dt
-
-
-
