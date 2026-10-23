@@ -2,16 +2,24 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
 
-from data_visualization.Dynamic_Visualizer_quarter import Visualizer
-from data_visualization.Simulation_Logger import SimulationLogger
-from suspension_set.Suspension import (
-    SuspensionQuarteravg,
-    SuspensionQuarterheave,
-    SuspensionQuartertender,
-)
-from suspension_set.suspension_state import quarter_suspension_state
-from road import quarter_road as qr
-from dynamics_analyze.suspension_set import model as sm
+if __package__:
+    from .data_visualization.Dynamic_Visualizer_quarter import Visualizer
+    from .data_visualization.Simulation_Logger import SimulationLogger
+    from .suspension_set.Suspension import (
+        SuspensionQuarteravg, SuspensionQuarterheave, SuspensionQuartertender,
+    )
+    from .suspension_set.suspension_state import quarter_suspension_state
+    from .road import quarter_road as qr
+    from .model import model as sm
+else:
+    from data_visualization.Dynamic_Visualizer_quarter import Visualizer
+    from data_visualization.Simulation_Logger import SimulationLogger
+    from suspension_set.Suspension import (
+        SuspensionQuarteravg, SuspensionQuarterheave, SuspensionQuartertender,
+    )
+    from suspension_set.suspension_state import quarter_suspension_state
+    from road import quarter_road as qr
+    from model import model as sm
 
 
 current_dir = Path(__file__).resolve().parent

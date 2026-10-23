@@ -1,14 +1,22 @@
 import numpy as np
 from pathlib import Path
 
-from data_visualization.Dynamic_Visualizer_quarter import Visualizer
-from data_visualization.Dynamic_Visualizer_pitch import PitchCarVisualizer
-from data_visualization.Simulation_Logger import SimulationLogger
-
-from suspension_set.Suspension import SuspensionFR
-from suspension_set.suspension_state import quarter_suspension_state,FR_suspension_state
-from dynamics_analyze.suspension_set import model as sm
-from road import FR_road as hr
+if __package__:
+    from .data_visualization.Dynamic_Visualizer_quarter import Visualizer
+    from .data_visualization.Dynamic_Visualizer_pitch import PitchCarVisualizer
+    from .data_visualization.Simulation_Logger import SimulationLogger
+    from .suspension_set.Suspension import SuspensionFR
+    from .suspension_set.suspension_state import quarter_suspension_state, FR_suspension_state
+    from .model import model as sm
+    from .road import FR_road as hr
+else:
+    from data_visualization.Dynamic_Visualizer_quarter import Visualizer
+    from data_visualization.Dynamic_Visualizer_pitch import PitchCarVisualizer
+    from data_visualization.Simulation_Logger import SimulationLogger
+    from suspension_set.Suspension import SuspensionFR
+    from suspension_set.suspension_state import quarter_suspension_state, FR_suspension_state
+    from model import model as sm
+    from road import FR_road as hr
 
 current_dir = Path(__file__).resolve().parent
 
@@ -30,7 +38,7 @@ for ti in t:
 
     #hr.road_sine_front_rear(state)
     #hr.road_impulse_rear(state)
-    hr.breaking(state)
+    hr.accelerate(state, ax=-2)  # braking: use the existing negative-ax input
     #hr.breaking(state)
 
     #sm.Half_suspension_2DOF_model(sus,state)

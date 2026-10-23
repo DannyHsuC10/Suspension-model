@@ -3,13 +3,20 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import copy
 
-from data_visualization.Dynamic_Visualizer_roll import RollCarVisualizer
-from data_visualization.Simulation_Logger import SimulationLogger
-
-from suspension_set.Suspension import SuspensionLR
-from suspension_set.suspension_state import quarter_suspension_state,LR_suspension_state
-from dynamics_analyze.suspension_set import model as sm
-from road import LR_road as hr
+if __package__:
+    from .data_visualization.Dynamic_Visualizer_roll import RollCarVisualizer
+    from .data_visualization.Simulation_Logger import SimulationLogger
+    from .suspension_set.Suspension import SuspensionLR
+    from .suspension_set.suspension_state import quarter_suspension_state, LR_suspension_state
+    from .model import model as sm
+    from .road import LR_road as hr
+else:
+    from data_visualization.Dynamic_Visualizer_roll import RollCarVisualizer
+    from data_visualization.Simulation_Logger import SimulationLogger
+    from suspension_set.Suspension import SuspensionLR
+    from suspension_set.suspension_state import quarter_suspension_state, LR_suspension_state
+    from model import model as sm
+    from road import LR_road as hr
 
 current_dir = Path(__file__).resolve().parent
 
@@ -25,7 +32,7 @@ state = LR_suspension_state(copy.deepcopy(left),copy.deepcopy(right))# 兩個1/4
 
 t = np.arange(0,0.25,state.dt)
 
-sus.h_rc = 0.025
+sus.h_rc = 0.03
 
 
 for ti in t:
@@ -34,9 +41,9 @@ for ti in t:
     #hr.road_step_both(state)
     #hr.road_sin_left(state)
     #hr.road_sin_alternate(state)
-    hr.Cornering_ramp_to_max(state)
+    hr.Cornering_left(state, t0=0.0)  # start within this 0.25 s experiment
     
-    sm.Half_rollcenter_all_model(sus,state)
+    sm.Half_rollcenter_LR_model(sus,state)
 
     state.Integration(sus)
 
@@ -45,8 +52,8 @@ for ti in t:
 # =======================================================================
 # show
 
-#viewer = RollCarVisualizer(logger.result(),track_width=1.28)
-#viewer.show()
+viewer = RollCarVisualizer(logger.result(),track_width=1.28)
+viewer.show()
 
 
 result = logger.result()

@@ -1,215 +1,155 @@
+"""Vehicle parameters and replaceable KC systems for the dynamics models."""
+
 import numpy as np
 
+if __package__ == "suspension_set":
+    from model.KC_sys import LinearKC, NullKC
+else:
+    from ..model.KC_sys import LinearKC, NullKC
+
+
 class SuspensionQuarter:
-
-    def __init__(self):
-
+    def __init__(self, k=70000):
         self.ms = 67      # sprung mass
         self.mu = 13      # unsprung mass
-        self.m_corner = self.ms+self.mu # 整體質量
+        self.m_corner = self.ms + self.mu
 
-        # roll 40000
-        # heave 70000
-        # heave tender = 28000
-        # ks avg = 34000
-        self.ks = 70000   # 懸吊 stiffness
+        # Keep the original Quarter convention: use unsprung mass as the
+        # reference mass for suspension/tire component damping ratios.
+        self.zeta = 0.7
+        self.corner = LinearKC(
+            k=k,
+            c=2 * self.zeta * np.sqrt(k * self.mu),
+            mr_value=1.0,
+            name="corner",
+        )
+        k_tire = 80000
+        self.tire = LinearKC(
+            k=k_tire,
+            c=2 * self.zeta * np.sqrt(k_tire * self.mu),
+            name="tire",
+        )
 
-        zeta = 0.7           # Damping ratio
-        self.cs = 2 * zeta * np.sqrt(self.ks * self.mu)   # 單角 damping
-        # (輪端1/4)=====================================
-        MR  = 1 # Motion ratio(沒有直推直接不管她=1)
+    @property
+    def ride_rate(self):
+        """Wheel/tire equivalent stiffness at zero displacement (N/m)."""
+        kw = self.corner.spring.stiffness(0.0) * self.corner.motion_ratio.ratio(0.0)**2
+        kt = self.tire.spring.stiffness(0.0) * self.tire.motion_ratio.ratio(0.0)**2
+        return kw * kt / (kw + kt) if kw + kt != 0 else 0.0
 
-        self.kt = 80000   # tire stiffness
-        self.ct = 50       # tire damping (盡量保留一個小數字)
 
-        self.kw = self.ks*MR **2    # 到輪胎上 stiffness
-        self.cw = self.cs*MR **2
-
-        # (整體1/8)=====================================
-        self.ride_rate = self.kw*self.kt/(self.kw+self.kt)# ride rate
-
-class SuspensionQuartertender:
-
+class SuspensionQuartertender(SuspensionQuarter):
     def __init__(self):
+        # Preserve the original linear tender approximation.
+        super().__init__(k=70000 * 0.34)
 
-        self.ms = 67      # sprung mass
-        self.mu = 13      # unsprung mass
-        self.m_corner = self.ms+self.mu # 整體質量
 
-        # roll 40000
-        # heave 70000
-        # heave tender = 28000
-        # ks avg = 34000
-        self.ks = 70000*0.34   # 懸吊 stiffness
-
-        zeta = 0.7           # Damping ratio
-        self.cs = 2 * zeta * np.sqrt(self.ks * self.mu)   # 單角 damping
-        # (輪端1/4)=====================================
-        MR  = 1 # Motion ratio(沒有直推直接不管她=1)
-
-        self.kt = 80000   # tire stiffness
-        self.ct = 50       # tire damping (盡量保留一個小數字)
-
-        self.kw = self.ks*MR **2    # 到輪胎上 stiffness
-        self.cw = self.cs*MR **2
-
-        # (整體1/8)=====================================
-        self.ride_rate = self.kw*self.kt/(self.kw+self.kt)# ride rate
-
-class SuspensionQuarteravg:
-
+class SuspensionQuarteravg(SuspensionQuarter):
     def __init__(self):
+        super().__init__(k=(36000 + 50000) / 2)
 
-        self.ms = 67      # sprung mass
-        self.mu = 13      # unsprung mass
-        self.m_corner = self.ms+self.mu # 整體質量
 
-        # roll 40000
-        # heave 70000
-        # heave tender = 28000
-        # ks avg = 34000
-        self.ks = (36000+50000)/2   # 懸吊 stiffness
-
-        zeta = 0.7           # Damping ratio
-        self.cs = 2 * zeta * np.sqrt(self.ks * self.mu)   # 單角 damping
-        # (輪端1/4)=====================================
-        MR  = 1 # Motion ratio(沒有直推直接不管她=1)
-
-        self.kt = 80000   # tire stiffness
-        self.ct = 50       # tire damping (盡量保留一個小數字)
-
-        self.kw = self.ks*MR **2    # 到輪胎上 stiffness
-        self.cw = self.cs*MR **2
-
-        # (整體1/8)=====================================
-        self.ride_rate = self.kw*self.kt/(self.kw+self.kt)# ride rate
-
-class SuspensionQuarterheave:
-
+class SuspensionQuarterheave(SuspensionQuarter):
     def __init__(self):
-
-        self.ms = 67      # sprung mass
-        self.mu = 13      # unsprung mass
-        self.m_corner = self.ms+self.mu # 整體質量
-
-        # roll 40000
-        # heave 70000
-        # heave tender = 28000
-        # ks avg = 34000
-        self.ks = 70000   # 懸吊 stiffness
-
-        zeta = 0.7           # Damping ratio
-        self.cs = 2 * zeta * np.sqrt(self.ks * self.mu)   # 單角 damping
-        # (輪端1/4)=====================================
-        MR  = 1 # Motion ratio(沒有直推直接不管她=1)
-
-        self.kt = 80000   # tire stiffness
-        self.ct = 50       # tire damping (盡量保留一個小數字)
-
-        self.kw = self.ks*MR **2    # 到輪胎上 stiffness
-        self.cw = self.cs*MR **2
-
-        # (整體1/8)=====================================
-        self.ride_rate = self.kw*self.kt/(self.kw+self.kt)# ride rate
+        super().__init__(k=70000)
 
 
 class SuspensionLR:
-    
     def __init__(self):
-        self.track = 1.28
+        self.track = 1.25
         self.Ix = 30
-        self.ms = 65      # sprung mass
-        self.mu = 15      # unsprung mass
-        self.m_corner = self.ms+self.mu # 整體質量
-        
+        self.ms = 65      # sprung mass per corner
+        self.mu = 15      # unsprung mass per corner
+        self.m_corner = self.ms + self.mu
+
         self.h_rc = 0.0
         self.h_cg = 0.3
-
         self.tau_rc = 0.005
 
-        c_heave = 6000
-        c_roll = 1200
-
+        self.zeta = 0.7
         k_heave = 18000
-        k_roll = 40000#*0.8
+        k_roll = 50000
+        self.heave = LinearKC(
+            k=k_heave,
+            c=2 * self.zeta * np.sqrt(k_heave * self.mu),
+            mr_value=1.0,
+            name="heave",
+        )
+        self.roll = LinearKC(
+            k=k_roll,
+            c=2 * self.zeta * np.sqrt(k_roll * self.mu)*0,
+            mr_value=1.0,
+            name="roll",
+        )
 
-        MR_heave = 1
-        MR_roll = 1
+        # No direct corner shocks in the original setup. These can be replaced
+        # independently with LinearKC, SeriesKC, Ohlins or LookupKC objects.
+        self.corner_left = NullKC()
+        self.corner_right = NullKC()
 
-        # 模態避震器
-        self.k_heave = k_heave*MR_heave**2
-        self.k_roll = k_roll*MR_roll**2
+        k_tire = 800000
+        self.tire_left = LinearKC(
+            k=k_tire,
+            c=2 * self.zeta * np.sqrt(k_tire * self.mu),
+            name="tire_left",
+        )
+        self.tire_right = LinearKC(
+            k=k_tire,
+            c=2 * self.zeta * np.sqrt(k_tire * self.mu),
+            name="tire_right",
+        )
 
-        self.c_heave = c_heave*MR_heave**2
-        self.c_roll = c_roll*MR_roll**2
+        self.m_frame = 65     # virtual frame mass (kg)
+        k_frame = k_roll * 10
+        self.frame = LinearKC(
+            k=k_frame,
+            c=2 * self.zeta * np.sqrt(k_frame * self.m_frame),
+            name="frame",
+        )
 
-        k_corner = 0
-        c_corner = 0
-        MR_corner = 1
-
-        # 直推的避震器
-        self.k_left = k_corner*MR_corner**2
-        self.k_right = k_corner*MR_corner**2# 確保左右相同
-        self.c_left = c_corner*MR_corner**2
-        self.c_right = c_corner*MR_corner**2# 確保左右相同
-
-        #self.kw = (self.k_heave+self.k_roll)/2+self.k_left# 直推以左側為主(基本上左右相同)   # 懸吊 stiffness
-        #self.cw = (self.c_heave+self.c_roll)/2+self.c_left    # 單角 damping
-
-        self.kt = 1000000   # tire stiffness
-        self.ct = 50       # tire damping (盡量保留一個小數字)
-
-        self.k_frame = k_roll*10      # N/m
-
-        self.m_frame = 65     # kg (虛擬質量)
-        zeta = 0
-        self.c_frame = 2*zeta*np.sqrt(self.k_frame*self.m_frame)
-        print(self.c_frame)
 
 class SuspensionFR:
-    
     def __init__(self):
-
         self.Iy = 50
-        self.ms = 65      # sprung mass
-        self.mu = 15      # unsprung mass
-        self.m_corner = self.ms+self.mu # 整體質量
+        self.ms = 65      # sprung mass per corner
+        self.mu = 15      # unsprung mass per corner
+        self.m_corner = self.ms + self.mu
 
         self.lf = 0.765
         self.lr = 0.765
         self.h_cg = 0.3
-        self.l = self.lf+self.lr
+        self.l = self.lf + self.lr
 
-        self.anti_dive_front =0
-        self.anti_squat_rear =0
-        #self.anti = 0.15
+        self.anti_dive_front = 0
+        self.anti_squat_rear = 0
 
-        c_heave_f = 1500
+        self.zeta = 0.7
         k_heave_f = 30000
-        c_heave_r = 1200
         k_heave_r = 28000
+        self.heave_f = LinearKC(
+            k=k_heave_f,
+            c=2 * self.zeta * np.sqrt(k_heave_f * self.mu),
+            mr_value=1.0,
+            name="heave_f",
+        )
+        self.heave_r = LinearKC(
+            k=k_heave_r,
+            c=2 * self.zeta * np.sqrt(k_heave_r * self.mu),
+            mr_value=1.0,
+            name="heave_r",
+        )
 
-        MR_heave_f = 1
-        MR_heave_r = 1
+        self.corner_front = NullKC()
+        self.corner_rear = NullKC()
 
-        # 模態避震器
-        self.k_heave_f = k_heave_f*MR_heave_f**2
-        self.c_heave_f = c_heave_f*MR_heave_f**2
-        self.k_heave_r = k_heave_r*MR_heave_r**2
-        self.c_heave_r = c_heave_r*MR_heave_r**2
-
-        k_front = 0
-        c_front = 0
-        k_rear = 0
-        c_rear = 0
-        MR_corner = 1
-
-        # 直推的避震器
-        self.k_front = k_front*MR_corner**2
-        self.k_rear = k_rear*MR_corner**2# 確保左右相同
-        self.c_front = c_front*MR_corner**2
-        self.c_rear = c_rear*MR_corner**2# 確保左右相同
-
-        self.kt = 80000   # tire stiffness
-        self.ct = 50       # tire damping (盡量保留一個小數字)
-
+        k_tire = 80000
+        self.tire_front = LinearKC(
+            k=k_tire,
+            c=2 * self.zeta * np.sqrt(k_tire * self.mu),
+            name="tire_front",
+        )
+        self.tire_rear = LinearKC(
+            k=k_tire,
+            c=2 * self.zeta * np.sqrt(k_tire * self.mu),
+            name="tire_rear",
+        )
