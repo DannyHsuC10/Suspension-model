@@ -14,7 +14,7 @@
 | --- | --- |
 | `Suspension_sys/` | 主要的全車懸吊系統模型。包含懸吊幾何、K&C 元件、液壓模型、全車狀態、路面輸入、STL 視覺化與模擬資料。 |
 | `dynamics_analyze/` | 動態分析工作區。包含 quarter、left-right、front-rear 不同自由度模型、路面輸入、狀態參數、模擬資料產生器與視覺化工具。 |
-| `front_view/` | 前視幾何分析與互動視覺化。用 2D 點/線/剛體幾何建立左右懸吊、instant center、roll center、camber map 等分析。 |
+| `suspension_geo/` | 懸吊幾何分析與互動視覺化。依 `fv/`、`sv/`、`tv/`、`we3D/` 分類各視角程式、mapping 與結果；共用輸入放在 `data/`。 |
 | `Steering_response_analysis/` | 轉向/輪胎反應分析。包含四輪載重、車輛參數、wheel output 工具，以及 Pacejka Magic Formula 輪胎模型與 `.tir` 參數。 |
 | `Aerodynamic and suspension inspection/` | 空力與懸吊檢查資料。包含四輪載重計算、roll/pitch/attitude、空力作用、CSV 結果、圖檔，以及「會不會撞地板」計算文件。 |
 | `RENAME.md` | 一行 side slip angle 公式筆記。 |
@@ -83,9 +83,9 @@
 
 建議使用方式是先看 `data_creator.py` 的 `ROADS_*`、`MODELS_*`、`DATA_*` 字典，再決定要跑哪一組模型與路面輸入。
 
-### `front_view/`
+### `suspension_geo/`
 
-這是前視 2D 懸吊幾何工作區，重點在幾何點位、連桿、輪胎/車體外形、instant center、roll center 與 camber 變化。
+這是懸吊幾何工作區，依前視、側視、上視與 3D 輪端分類；共用車輛參數、幾何與繪圖工具保留在根目錄。各類分析程式與結果放在同一個子資料夾。
 
 重要內容：
 
@@ -94,12 +94,16 @@
 | `geometry.py` | 基礎幾何物件，如 `Point`、`Link`、`RigidBody`、`Polygon`、`Wheel`、`Body`。 |
 | `car.py` | 車輛幾何與參數。 |
 | `Geometric_Analysis.py` | 幾何計算工具與懸吊側邊模型，包括旋轉、圓交點、四連桿模擬、roll center 計算等。 |
-| `sus_fv_v5.py` | Matplotlib 互動滑桿視覺化主腳本，可調整左右 lower arm angle 並即時更新 roll center。 |
-| `sus_fv_maping.py`, `rc_camber_map.py` | 幾何 map/roll center/camber 相關分析。 |
+| `fv/sus_fv_v5.py` | Matplotlib 互動滑桿視覺化主腳本，可調整左右 lower arm angle 並即時更新 roll center。 |
+| `fv/sus_fv_maping.py`, `fv/rc_camber_map.py` | 幾何 map/roll center/camber 相關分析。 |
+| `fv/run15_pose_analysis.py` | Run 15 前視分析，CSV/PNG 結果保存在 `fv/`。 |
+| `sv/` | 側視互動程式、Run 15 anti 分析與 CSV/PNG 結果。 |
+| `tv/`, `we3D/` | 上視轉向幾何與 3D 輪端分析。 |
+| `data/data_run15_selected.csv` | FV、SV 共用的 Run 15 輸入。 |
 | `visualization.py` | Matplotlib 繪圖物件封裝，例如 point/link/polygon plot。 |
-| `suspension_kinematics_data.pkl` | 幾何掃描或運動學資料。 |
+| `fv/suspension_kinematics_data.pkl` | 幾何掃描或運動學資料。 |
 
-如果要理解「懸吊幾何怎麼被建出來」，建議閱讀順序是：`car.py` -> `geometry.py` -> `Geometric_Analysis.py` -> `sus_fv_v5.py`。
+如果要理解「懸吊幾何怎麼被建出來」，建議閱讀順序是：`car.py` -> `geometry.py` -> `Geometric_Analysis.py` -> `fv/sus_fv_v5.py`。完整目錄與執行方式見 `suspension_geo/README.md`。
 
 ### `Steering_response_analysis/`
 
@@ -161,7 +165,7 @@
 
 1. 想理解全車懸吊系統：先看 `Suspension_sys/model/Suspension_model_v12.py` 的流程圖與函式，再看 `Suspension_sys/Vehicle_status.py`、`Suspension_sys/Suspension_LP03.py`。
 2. 想理解彈簧/阻尼/K&C：看 `Suspension_sys/model/KC_sys/`，從 `spring.py`、`damper.py`、`MotionRatio.py` 到 `KC_builder.py`。
-3. 想理解幾何效應：看 `Suspension_sys/model/sus_geo/` 與 `front_view/Geometric_Analysis.py`。
+3. 想理解幾何效應：看 `Suspension_sys/model/sus_geo/` 與 `suspension_geo/Geometric_Analysis.py`。
 4. 想跑簡化動態模型：看 `dynamics_analyze/data_creator.py`，再看 `dynamics_analyze/model/` 與 `dynamics_analyze/road/`。
 5. 想分析輪胎與轉向：看 `Steering_response_analysis/wheel.py` 與 `Steering_response_analysis/Pacejka_MF_model/model/api.py`。
 6. 想看空力造成的載重/姿態/車高影響：看 `Aerodynamic and suspension inspection/Four_wheel_load.py`、`roll.py` 與該資料夾中的 CSV/PNG/MD。

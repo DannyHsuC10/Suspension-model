@@ -1,10 +1,65 @@
-# front_view 資料夾說明
+# suspension_geo 資料夾說明
 
-`front_view` 是前視懸吊幾何分析工作區，主要用 2D 幾何模型建立左右懸吊，計算輪胎接地點、kingpin、上下控制臂、instant center、roll center 與 camber 變化，並用 Matplotlib 做互動圖與 mapping 圖。
+`suspension_geo` 依分析視角分成 `fv`（前視）、`sv`（側視）、`tv`（上視）及 `we3D`（3D 輪端）。同一類的互動程式、mapping、分析程式與結果放在同一個子資料夾，車輛參數與共用幾何工具保留在根目錄。
 
-整理日期：2026-08-29
+整理日期：2026-10-25
 
-## 整體目的
+## 資料夾分類
+
+```text
+suspension_geo/
+├── car.py                           # 各視角共用的車輛與前後懸吊參數
+├── geometry.py                      # 共用 Point、Link、RigidBody2D 等物件
+├── Geometric_Analysis.py            # 前視求解器與側視共用的幾何運算
+├── visualization.py                 # 共用 Matplotlib 繪圖工具
+├── data/
+│   └── data_run15_selected.csv       # FV、SV 共用的 Run 15 輸入資料
+├── fv/
+│   ├── sus_fv_v5.py                 # 前視互動圖
+│   ├── sus_fv_maping.py             # 前視 mapping
+│   ├── rc_camber_map.py             # mapping 結果繪圖
+│   ├── optimize_fv_geometry.py      # RC 高度 / FVSA 離散最佳化
+│   ├── optimization_results/        # 最佳化 cost 圖、歷程與最佳 mapping
+│   ├── lab.py                       # 直接求解範例
+│   ├── run15_pose_analysis.py        # Run 15 前視分析
+│   ├── suspension_kinematics_data.pkl
+│   ├── data_run15_geometry.csv
+│   └── data_run15_geometry.png
+├── sv/
+│   ├── sus_sv_v4.py                 # 側視互動圖
+│   ├── run15_sv_anti_analysis.py     # Run 15 anti 分析
+│   ├── data_run15_sv_anti.csv
+│   └── data_run15_sv_anti.png
+├── tv/
+│   └── sus_tv_v2.py                 # 上視轉向幾何
+└── we3D/
+    └── sus_3Dwe_v3.py               # 3D 輪端轉向與力臂分析
+```
+
+新增 mapping 或分析結果時，放進對應視角資料夾；多個視角共用的原始輸入放在 `data/`。既有結果隨檔案搬移保留，整理資料夾本身不會重新計算結果。
+
+## 執行方式
+
+從專案根目錄 `D:\Danny\DH3868\Suspension-model` 執行：
+
+```powershell
+python -m suspension_geo.fv.sus_fv_v5
+python -m suspension_geo.fv.sus_fv_maping
+python -m suspension_geo.fv.rc_camber_map
+python -m suspension_geo.fv.optimize_fv_geometry
+python -m suspension_geo.fv.lab
+python -m suspension_geo.fv.run15_pose_analysis
+python -m suspension_geo.sv.sus_sv_v4
+python -m suspension_geo.sv.run15_sv_anti_analysis
+python -m suspension_geo.tv.sus_tv_v2
+python -m suspension_geo.we3D.sus_3Dwe_v3
+```
+
+也可直接執行腳本，例如 `python suspension_geo/fv/sus_fv_v5.py`，或進入 `fv/` 後執行 `python sus_fv_v5.py`。Python 環境需要 `numpy`、`scipy`、`pandas` 與 `matplotlib`。
+
+FV、SV 的 Run 15 分析預設都讀取 `data/data_run15_selected.csv`，並把 CSV 與 PNG 輸出到各自的 `fv/` 或 `sv/`，不受執行時所在目錄影響。可用 `--input`、`--output`、`--figure` 指定其他路徑。FV mapping 的 PKL 固定寫入 `fv/suspension_kinematics_data.pkl`，結果繪圖也從相同位置讀取。
+
+## 前視分析目的
 
 這個資料夾的目的是把前視懸吊幾何從車輛參數轉成可計算、可視覺化的模型。它可以用來回答幾類問題：
 
@@ -29,13 +84,13 @@ geometry.py
 visualization.py
   將幾何物件轉成 Matplotlib 圖形
       |
-sus_fv_v5.py
+fv/sus_fv_v5.py
   互動式前視圖，滑桿調整左右 lower arm angle
       |
-sus_fv_maping.py
-  批次掃描左右角度，輸出 suspension_kinematics_data.pkl
+fv/sus_fv_maping.py
+  批次掃描左右角度，輸出 fv/suspension_kinematics_data.pkl
       |
-rc_camber_map.py
+fv/rc_camber_map.py
   讀取 pkl，畫出 camber surface 與 roll center map
 ```
 
@@ -47,12 +102,17 @@ rc_camber_map.py
 | `geometry.py` | 基礎 2D 幾何物件。包含 `Point`、`Link`、`RigidBody2D`、`Polygon`、`Wheel`、`Body`。 |
 | `Geometric_Analysis.py` | 前視懸吊幾何與運動學核心。負責算靜態點位、上下控制臂、羊角、instant center、roll center、camber、行程反算等。 |
 | `visualization.py` | Matplotlib 視覺化封裝。把 `Point`、`Link`、`Polygon` 畫成可更新的 plot object。 |
-| `sus_fv_v5.py` | 互動式前視懸吊圖。用兩個 slider 控制左右 lower arm angle，並即時更新幾何與 roll center。 |
-| `sus_sv.py` | 互動式前後軸側視懸吊圖。前後輪中心相隔 `Car.l`，使用 `SuspensionF` 與 `SuspensionR` 幾何；兩個滑桿分別控制前、後輪的 Al 高度並更新當下 IC。後軸幾何沿車身縱向反向，後輪 IC 位於後輪後方，前輪 IC 位於前輪前方。 |
-| `sus_fv_maping.py` | 批次掃描左右 lower arm angle，計算 heave、roll、左右 camber、RC 位置與各點座標，輸出 `.pkl`。 |
-| `rc_camber_map.py` | 讀取 `suspension_kinematics_data.pkl`，畫出 camber 3D surface、RC migration cloud 與 RC height surface。 |
-| `lab.py` | 直接求解範例。展示如何用 theta、wheel travel、heave/roll 姿態反推 camber 與 roll center。 |
-| `suspension_kinematics_data.pkl` | `sus_fv_maping.py` 產生的幾何掃描資料。 |
+| `fv/sus_fv_v5.py` | 互動式前視懸吊圖。用兩個 slider 控制左右 lower arm angle，並即時更新幾何與 roll center。 |
+| `sv/sus_sv_v4.py` | 互動式前後軸側視懸吊圖。前後輪中心相隔 `Car.l`，使用 `SuspensionF` 與 `SuspensionR` 幾何；兩個滑桿分別控制前、後輪的 Al 高度並更新當下 IC。後軸幾何沿車身縱向反向，後輪 IC 位於後輪後方，前輪 IC 位於前輪前方。 |
+| `tv/sus_tv_v2.py` | 上視轉向幾何，以轉向機位移控制左右輪轉向並顯示掃描曲線。 |
+| `we3D/sus_3Dwe_v3.py` | 3D 輪端轉向圖，顯示接地點軌跡、轉向力臂與輪胎傾角。 |
+| `fv/sus_fv_maping.py` | 批次掃描左右 lower arm angle，計算 heave、roll、左右 camber、RC 位置與各點座標，輸出 `.pkl`。 |
+| `fv/rc_camber_map.py` | 讀取同資料夾的 `suspension_kinematics_data.pkl`，畫出 camber 與 roll center map。 |
+| `fv/lab.py` | 直接求解範例。展示如何用 theta、wheel travel、heave/roll 姿態反推 camber 與 roll center。 |
+| `fv/run15_pose_analysis.py` | 用 Run 15 姿態資料分析前視 camber、roll center 與 camber gain，輸出同資料夾的 `data_run15_geometry.csv/.png`。 |
+| `sv/run15_sv_anti_analysis.py` | 用 Run 15 資料分析側視 IC、pitch center 與 anti，輸出同資料夾的 `data_run15_sv_anti.csv/.png`。 |
+| `fv/suspension_kinematics_data.pkl` | `sus_fv_maping.py` 產生的幾何掃描資料。 |
+| `data/data_run15_selected.csv` | FV、SV 共用的 Run 15 原始輸入。 |
 
 ## 主要概念
 
@@ -70,6 +130,16 @@ rc_camber_map.py
 | `KPI` | Kingpin Inclination，主銷內傾角。 |
 | `scrub_radius` | 輪胎接地中心與 kingpin 地面投影的水平距離。 |
 
+### Camber 正負定義
+
+FV mapping 與 `SuspensionDirectSolver` 共用 `SuspensionSide.calc_camber_angle()`：以輪胎底邊 `wheel_pts[0] → wheel_pts[1]` 相對當下左右輪接地點連線的角度計算 camber，並校正左輪的鏡像方向。
+
+- 正 camber：輪胎上端向車外傾。
+- 負 camber：輪胎上端向車內傾。
+- 零 camber：輪胎底邊與地面連線平行，輪胎相對地面直立。
+
+地面基準會隨左右輪行程改變。計算使用 `atan2` 保留方向，角度單位為 deg。更新前產生的結果不含正負方向；重新執行 `fv/sus_fv_maping.py` 可更新 mapping 的 PKL。`fv/run15_pose_analysis.py` 與 `fv/lab.py` 也使用相同正負定義，既有 Run 15 CSV/PNG 需重新執行分析才會更新。
+
 ## `car.py`
 
 `Car` 只放車輛與輪胎資料；`SuspensionF` 與 `SuspensionR` 分別放前、後懸吊硬點、側視 anti 設定與幾何分析的顯示/掃描設定。
@@ -82,7 +152,8 @@ rc_camber_map.py
 前視分析會同時建立兩個物件，再交給幾何 helper：
 
 ```python
-from car import Car, SuspensionF
+from suspension_geo.car import Car, SuspensionF
+from suspension_geo import Geometric_Analysis as ga
 
 car = Car()
 suspension_f = SuspensionF()
@@ -153,14 +224,15 @@ sus_helper = ga.SusGeometryHelper(car, suspension_f)
 - instant center 與 force line。
 - CG 與 roll center。
 - 兩個 slider：`Right Arm Angle`、`Left Arm Angle`。
+- 圖形上方的即時數值面板：左右輪有號 camber（deg）、roll center X/Y（mm）、roll（deg）與 heave（mm）。
 
-滑動 slider 時會更新左右懸吊幾何，並重新計算 roll center。
+滑動任一 slider 時，幾何與面板會一起更新，開啟視窗時也會顯示初始值。計算與 FV mapping 共用相同定義：camber 上端向外為正；roll 為左輪指向右輪的接地點連線相對水平的角度；heave 為左右接地點相對初始高度的平均位移。RC 無有限交點時顯示 `N/A` 並隱藏動態 RC 點。
 
 執行方式：
 
 ```powershell
-cd D:\Danny\DH3868\Suspension-model\front_view
-python sus_fv_v5.py
+cd D:\Danny\DH3868\Suspension-model
+python -m suspension_geo.fv.sus_fv_v5
 ```
 
 ### `sus_fv_maping.py`
@@ -199,6 +271,73 @@ steps = 30
 | Camber 3D surface | 以 heave 與 roll angle 為輸入軸，分別畫 left/right camber 曲面。 |
 | Roll Center map | 畫 RC X/Y migration cloud，以及 RC height 隨左右 wheel travel 變化的 3D 曲面。 |
 
+### `optimize_fv_geometry.py`
+
+用 SciPy `differential_evolution` 的 `integrality` 限制，在指定尺寸格點上最佳化 RC 高度與 FVSA。起點為 RC 高度 **35 mm**、FVSA **1000 mm**；RC 高度範圍 **−5～50 mm**、步距 **1 mm**，FVSA 範圍 **750～2500 mm**、步距 **50 mm**。整個搜尋過程都使用這些離散尺寸，關閉連續尺寸的 polishing。
+
+每個候選設計會重新建立懸吊硬點與行程角度範圍，依 `front_view_target_travel`（預設每輪約 ±25 mm）取樣完整 mapping，預設左右各 30 點，共 900 個姿態。左右輪可獨立求解，因此程式只需解出單輪各角度，再鏡像並組合出完整網格；測試會核對它與既有 FV mapping 的結果一致。幾何無解或 IC/RC 無有限交點時，整組設計列為無效，避免以不完整的 mapping 降低 cost。
+
+RC cost 的固定目標是 **`(X, Y) = (0, y_best) = (0, 33) mm`**，由 `Y_BEST_MM = 33.0` 定義。`y_best` 不參與最佳化，也不隨起點或候選設計的靜態 RC 高度改變；最佳化起點仍為 RC 高度 35 mm。令每個 mapping 點到固定目標的距離為 `r`：
+
+```text
+y_best = 33 mm  # 固定常數
+r² = (x_mm - 0.0)² + (y_mm - y_best)²
+RC_distance_raw = mean(k_rc × r²)  # 原本的徑向距離目標，mm²
+k_rc = 3 if r > RC_LIMIT_MM else 1
+RC_height_raw = mean((y_mm - y_best)²)  # 獨立的純高度目標，mm²
+
+Camber_raw = k_camber × mean(camber_deg²)  # deg²，左右輪全部取樣一起平均
+k_camber = 3 if 任一輪、任一行程點 |camber| > 2 deg else 1
+
+RC_distance_scale = 起始設計的 RC_distance_raw
+RC_height_scale = 起始設計的 RC_height_raw
+Camber_scale = 起始設計的 Camber_raw
+RC_distance cost = RC_distance_raw / RC_distance_scale
+RC_height cost = RC_height_raw / RC_height_scale
+RC cost = (rc_distance_weight × RC_distance cost + rc_height_weight × RC_height cost)
+          / (rc_distance_weight + rc_height_weight)
+Camber cost = Camber_raw / Camber_scale
+
+w_rc = rc_weight / (rc_weight + camber_weight)
+w_camber = camber_weight / (rc_weight + camber_weight)
+Total cost = w_rc × RC cost + w_camber × Camber cost
+```
+
+徑向距離、純高度、camber 三個正規化分母在每次執行開始時，以 RC 高度 **35 mm**、FVSA **1000 mm** 的完整 mapping 計算一次，之後保持固定。一般情況下起點三項 cost 都是 **1**；小於 1 表示優於起點，大於 1 表示劣於起點。若某項起始誤差已經為零，改用該項容許尺度的平方作分母，避免除以零。
+
+RC 內部預設 `rc_distance_weight = 1`、`rc_height_weight = 5`，即徑向距離占 **1/6**、純高度目標占 **5/6**。高度誤差具有獨立尺度，避免較大的 X 遷移把 Y 目標淹沒，造成最佳化一味提高 RC 來減少 X 遷移。純高度目標直接量測整個 mapping 的 `(Y−33)²`，不會因 X 改變圓形懲罰的觸發點數而降低。
+
+外部預設 `rc_weight = camber_weight = 1`，RC 與 camber 係數各為 **50%**，起始 total cost 為 **1**。預設 total cost 等價於 `(1/12) × RC_distance cost + (5/12) × RC_height cost + 0.5 × Camber cost`。原始平方誤差、三項正規化 cost、加權貢獻與固定分母都會印出並儲存。圖上虛線另外標示 RC 高度的貢獻。
+
+目前 `RC_LIMIT_MM = 50.0`，RC 懲罰圓心固定為 `(0, 33) mm`；半徑由這個常數設定，獨立於正規化分母。原本的徑向距離目標完整保留超標 3 倍規則，另外加入不受 X 懲罰觸發影響的純高度目標。3 倍門檻是軟懲罰，最佳解仍可能包含超過門檻的行程點。Camber 目標使用角度（deg）接近零的平方誤差；camber gain（deg/mm）需另行定義目標。
+
+33 mm 是全 mapping 的 RC 高度目標，設計的靜態 RC 高度仍是最佳化變數。終端與 JSON 另列出 `rc_y_mean_mm`、`rc_y_error_rms_mm`、`rc_y_min_mm`、`rc_y_max_mm`，分別表示 mapping 的平均 RC 高度、相對 33 mm 的高度 RMS 誤差與高度範圍。
+
+差分演化完成後，預設再用 SciPy `brute` 檢查全部 **56 × 36 = 2,016** 組尺寸，確認此 mapping 與離散尺寸範圍中的最佳解。重複尺寸使用快取。程式會分別列印 DE 的停止狀態與完整格點驗證狀態。
+
+```powershell
+python -m suspension_geo.fv.optimize_fv_geometry
+# 批次執行，存圖而不開啟視窗
+python -m suspension_geo.fv.optimize_fv_geometry --no-show
+# 進一步加強 RC 高度接近 33 mm：RC 內部距離:純高度 = 1:10
+python -m suspension_geo.fv.optimize_fv_geometry --rc-height-weight 10
+# 提高整個 RC 目標相對於 camber 的重要性：RC:camber = 3:1
+python -m suspension_geo.fv.optimize_fv_geometry --rc-weight 3
+# 提高 camber 重要性：RC / camber 係數為 1/3、2/3
+python -m suspension_geo.fv.optimize_fv_geometry --rc-weight 1 --camber-weight 2
+```
+
+輸出存於 `fv/optimization_results/`：
+
+- `cost_history.png`：候選 cost、目前最佳 cost、RC/camber 分項與尺寸變化圖；橫軸為實際計算過的不重複設計數。
+- `optimization_history.csv`：每組設計的原始誤差、正規化 cost、加權貢獻、尺寸、階段與當時最佳解。
+- `optimization_summary.json`：起點、最佳解、距離/高度/camber 固定正規化分母、兩層權重比例、RC 高度診斷、停止狀態與全格點驗證結果。
+- `optimal_mapping.csv`：最佳設計完整 mapping 的 RC、camber、左右行程與 roll。
+
+可用 `--rc-weight`、`--camber-weight` 調整權重，`--output-dir` 改輸出位置，`--steps` 改 mapping 解析度。RC 目標固定為 `(0, 33) mm`，已移除隨候選設計改變目標的 `--reference` 選項。`--camber-penalty point` 可改成只加重超標行程點。`--no-grid-check` 可略過完整格點驗證，此時不保證離散全域最佳。程式以新物件計算，不會將最佳尺寸自動寫回 `car.py` 或覆蓋既有 mapping PKL。
+
+演算法參考：[SciPy differential_evolution](https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.differential_evolution.html)。
+
 ### `lab.py`
 
 `lab.py` 是非圖形互動的求解範例，展示 `SuspensionDirectSolver` 的三種用法：
@@ -218,7 +357,7 @@ steps = 30
 | `travel_left`, `travel_right` | 左右輪行程，單位 m。 |
 | `heave` | 左右輪平均行程，單位 m。 |
 | `roll_deg` | 左右接地點連線相對水平的角度，單位 deg。 |
-| `camber_left_deg`, `camber_right_deg` | 左右輪 camber，單位 deg。 |
+| `camber_left_deg`, `camber_right_deg` | 左右輪有號 camber，單位 deg；輪胎上端向外為正、向內為負。 |
 | `theta_left`, `theta_right` | 左右 lower arm angle，單位 rad。 |
 | `rc` | roll center 座標 `[x, y]`，單位 m。 |
 | `ic_left`, `ic_right` | 左右 instant center 座標。 |
@@ -238,14 +377,14 @@ steps = 30
 
 ## 與整體專案的關係
 
-`front_view` 專注在前視幾何與運動學，不直接處理完整車輛動態力學。它比較像是懸吊設計前處理工具：
+`suspension_geo` 專注在各視角的幾何與運動學，不直接處理完整車輛動態力學。前視分析可作為懸吊設計前處理工具：
 
 - 提供靜態懸吊幾何。
 - 估算 roll center 高度與遷移。
 - 產生 camber gain / camber map。
 - 把幾何結果提供給後續的 dynamics 或 full suspension model 參考。
 
-相較於 `dynamics_analyze/` 的彈簧阻尼時間域模擬，`front_view/` 更關心「幾何點位如何移動」；相較於 `Suspension_sys/` 的全車模型，它更適合快速調整與理解前視懸吊設計。
+相較於 `dynamics_analyze/` 的彈簧阻尼時間域模擬，`suspension_geo/` 更關心「幾何點位如何移動」；相較於 `Suspension_sys/` 的全車模型，它更適合快速調整與理解懸吊幾何設計。
 
 ## 注意事項
 

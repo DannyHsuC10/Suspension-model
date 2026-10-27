@@ -30,9 +30,9 @@ state = LR_suspension_state(copy.deepcopy(left),copy.deepcopy(right))# 兩個1/4
 # ===========================================================================================
 # Simulation
 
-t = np.arange(0,0.25,state.dt)
+t = np.arange(0,1.5,state.dt)
 
-sus.h_rc = 0.03
+sus.h_rc = 0.02
 
 
 for ti in t:

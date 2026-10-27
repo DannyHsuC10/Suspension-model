@@ -146,7 +146,7 @@ def plot_suspension_comparison(all_sweep_results):
 
 
 if __name__ == "__main__":
-    heights = np.arange(0.005, 0.050 + 0.0001, 0.005)
+    heights = np.arange(0.001, 0.020 + 0.0001, 0.001)
 
     # Step 1: run one simulation and print Ft/Fs max/min.
     h = 0.005

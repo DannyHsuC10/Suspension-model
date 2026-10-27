@@ -12,7 +12,7 @@ class Car:
         self.l = 1.53  # Wheelbase [m]
         self.lf = 0.7498400000000001  # CG to front axle [m]
         self.lr = self.l - self.lf  # CG to rear axle [m]
-        self.tf = 1.28  # Front track width [m]
+        self.tf = 1.25  # Front track width [m]
         self.tr = 1.24  # Rear track width [m]
         self.h_cog = 0.3016451511  # CG height above ground [m]
         self.m = 321.0  # Vehicle mass [kg]
@@ -37,10 +37,10 @@ class Car:
         # Vehicle body outline used as a background in the front-view plot.
         # Coordinates are measured from the vehicle centerline [m].
         self.body_face_f = [
-            (0.2, self.bottom),
-            (-0.2, self.bottom),
-            (-0.2, 0.5),
-            (0.2, 0.5),
+            (0.21, self.bottom),
+            (-0.21, self.bottom),
+            (-0.21, 0.5),
+            (0.21, 0.5),
         ]
 
 
@@ -53,8 +53,8 @@ class SuspensionF:
         # ------------------------------------------------------------------
         self.scrub_radius = 18 / 1000  # Scrub radius [m]
         self.kpi = np.deg2rad(10)  # Kingpin inclination [rad]
-        self.h_rc = 25 / 1000  # Target roll-center height [m]
-        self.fvsa = 1000 / 1000  # Front-view swing-arm length [m]
+        self.h_rc = 35 / 1000  # Target roll-center height [m]
+        self.fvsa = 1250 / 1000  # Front-view swing-arm length [m]
 
         self.Au = 85 / 1000  # Upper upright point offset from wheel center [m]
         self.Al = 90 / 1000  # Lower upright point offset from wheel center [m]
@@ -63,8 +63,8 @@ class SuspensionF:
         self.sus_contact = [
             (0.205, 0.08),
             (-0.205, 0.08),
-            (-0.250, 0.300),
-            (0.250, 0.205),
+            (-0.255, 0.300),
+            (0.255, 0.300),
         ]
         self.front_view_target_travel = 0.025  # Kinematics sweep half-range [m]
         self.front_view_mapping_steps = 30  # Sample count per side in mapping
@@ -81,7 +81,7 @@ class SuspensionF:
         # Side-view suspension geometry and anti settings
         # ------------------------------------------------------------------
         self.mechanical_trail_sv = 15 / 1000  # Mechanical trail [m]
-        self.caster_sv_deg = 4.0  # Caster angle [deg]
+        self.caster_sv_deg = 3.0  # Caster angle [deg]
         self.kingpin_length_sv = 0.6  # Drawn kingpin-axis length [m]
         self.front_brake_bias_sv = 0.7  # Fraction of braking force at front axle
         self.target_anti_dive_sv = 0.15  # Anti-dive fraction (0.5 means 50%)
@@ -94,7 +94,7 @@ class SuspensionF:
         # ------------------------------------------------------------------
         # Side-view visualization and slider settings
         # ------------------------------------------------------------------
-        self.side_view_travel_limit = 0.025  # Slider travel either side [m]
+        self.side_view_travel_limit = 0.03  # Slider travel either side [m]
         self.side_view_path_half_length = 0.5  # Displayed path half-length [m]
         self.side_view_wheel_outline_points = 48  # Tire polygon resolution
         self.side_view_figure_size = (10, 8)  # Figure size [inches]
@@ -118,7 +118,7 @@ class SuspensionR:
         self.scrub_radius = 18 / 1000  # Scrub radius [m]
         self.kpi = np.deg2rad(10)  # Kingpin inclination [rad]
         self.h_rc = 25 / 1000  # Target roll-center height [m]
-        self.fvsa = 1000 / 1000  # Front-view swing-arm length [m]
+        self.fvsa = 2000 / 1000  # Front-view swing-arm length [m]
 
         self.Au = 85 / 1000  # Upper upright point offset from wheel center [m]
         self.Al = 90 / 1000  # Lower upright point offset from wheel center [m]

@@ -109,6 +109,3 @@ class Suspension_A:
         self.W = self.m * g
 
 
-
-Suspension_A()
-

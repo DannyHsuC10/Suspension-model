@@ -1,5 +1,5 @@
 import numpy as np
-import geometry as ge
+from . import geometry as ge
 from scipy.optimize import fsolve
 
 # 幾何運算函式 (旋轉、求解、極限計算)
@@ -340,30 +340,37 @@ class SuspensionSide:
 
     def calc_camber_angle(self, gnd_line_vec=np.array([1.0, 0.0])):
         """
-        利用 wheel_pts[0] 與 wheel_pts[1] 組成的輪胎軸線/中心線向量來計算
+        輪胎底邊相對左右接地點連線的有號 camber，單位 deg。
+
+        地面向量由左輪指向右輪；輪胎上端向車外傾為正、向車內傾為負。
+        左輪的底邊頂點順序經過鏡像，先反轉方向再計算。
         """
+        gnd_line_vec = np.asarray(gnd_line_vec, dtype=float)
         if len(self.wheel_pts) >= 2:
             p1 = self.wheel_pts[0].pos
             p2 = self.wheel_pts[1].pos
-            wheel_vec = p2 - p1  # 輪胎邊界/中軸向量
+            wheel_vec = p2 - p1  # 輪胎底邊向量
+            if self.is_left:
+                wheel_vec = -wheel_vec
         else:
-            # 備用方案：使用 upright 向量 (kua - lak)
-            wheel_vec = self.kua.pos - self.lak.pos
+            # 無輪胎頂點時，以 upright 的垂線近似輪胎底邊。
+            upright_vec = self.kua.pos - self.lak.pos
+            wheel_vec = np.array([upright_vec[1], -upright_vec[0]])
 
-        # 兩向量夾角 (rad)
+        if (np.linalg.norm(wheel_vec) < 1e-12
+                or np.linalg.norm(gnd_line_vec) < 1e-12):
+            raise ValueError("Camber requires nonzero tire and ground vectors.")
+
+        # atan2 保留地面轉到輪胎底邊的方向，並避免 arccos 在 0 度附近的誤差。
+        cross_product = (
+            gnd_line_vec[0] * wheel_vec[1]
+            - gnd_line_vec[1] * wheel_vec[0]
+        )
         dot_product = np.dot(wheel_vec, gnd_line_vec)
-        norms = np.linalg.norm(wheel_vec) * np.linalg.norm(gnd_line_vec)
-        cos_angle = np.clip(dot_product / (norms + 1e-9), -1.0, 1.0)
-        angle_rad = np.arccos(cos_angle)
+        angle_deg = np.degrees(np.arctan2(cross_product, dot_product))
 
-        # 轉為度數 (deg)
-        angle_deg = np.degrees(angle_rad)
-
-        # 判斷外傾角正負號 (以左/右側輪幾何為準)
-        if self.is_left:
-            return (180-angle_deg)
-        else:
-            return angle_deg
+        # 同樣的旋轉方向，在左右輪代表相反的內傾／外傾。
+        return float(angle_deg if self.is_left else -angle_deg)
 
     def update_kinematics(self, theta, helper):
         """根據角度更新單側運動學"""

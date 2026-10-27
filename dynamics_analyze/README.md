@@ -14,14 +14,23 @@
 
 目前的剛性設定如下，所有已安裝線性元件的阻尼係數均由 `zeta = 0.7` 計算：
 
-- Quarter 的懸吊 k 分別為 `70000`、tender `23800`、avg `43000`、heave `70000` N/m，
-  c 仍由 `2 * 0.7 * sqrt(k * 13)` 計算。tender 保留原本的線性近似。
+- Quarter 的線性懸吊 k 分別為 `70000`、avg `43000`、heave `70000` N/m，
+  c 由 `2 * 0.7 * sqrt(k * 13)` 計算。
+- `SuspensionQuartertender.corner` 使用 `SeriesKC`：
+  main `70000`、tender (`low`) `70000` N/m、travel `0.0043` m、MR `1.0`、
+  壓縮／伸長行程限制各 `0.08` m。低／高速壓縮與回彈的四個阻尼係數均設為
+  主彈簧的臨界阻尼 `2 * sqrt(k_main * mu)`，目前約 `1907.88` N·s/m
+  （參考質量沿用 Quarter 的 `mu = 13` kg）。速度切換值保留 `0.05` m/s，
+  因四個係數相同，阻尼力等同 `-c_critical * velocity`。
+  串聯剛性為 `35000` N/m；依既有 `SeriesSpring` 實作，位移小於 `-0.0043` m
+  時切換為主彈簧剛性 `70000` N/m。此懸吊阻尼不由 `self.zeta` 推算。
 - LR 的 heave k 為 `18000`、roll 為 `50000`、frame 為 `500000` N/m。
 - FR 的前 heave k 為 `30000`、後 heave 為 `28000` N/m。
 - Quarter 與 FR 輪胎 k 為 `80000`，LR 為 `800000` N/m。
 - 原本 k、c 都為零的直推避震器使用 `NullKC()`；每個位置可獨立替換物件。
 
-各設定類別以 `self.zeta = 0.7` 搭配 `c = 2 * self.zeta * sqrt(k * m)` 初始化阻尼。
+線性阻尼預設以 `self.zeta = 0.7` 搭配 `c = 2 * self.zeta * sqrt(k * m)` 初始化；
+tender 的 `corner` 改用上述 `SeriesKC` 阻尼曲線。
 沿用 Quarter 的參考質量慣例，懸吊與輪胎使用 `mu`，車架使用 `m_frame`。
 這是各元件依參考質量設定的阻尼比，並不表示耦合多自由度模型的每個模態阻尼比都等於 0.7。
 若修改剛性或參考質量，需同時依公式重新計算 c；單獨修改 `self.zeta` 不會更新已建立的物件。
@@ -53,7 +62,7 @@ lr.heave = Ohlins(
     name="heave",
 )
 
-# 真正的串聯彈簧可自行替換，不會自動套用到原本 tender 設定。
+# SuspensionQuartertender 預設使用串聯彈簧；其他設定也可以自行替換。
 sus.corner = SeriesKC(
     main=50000, low=15000, travel=0.03,
     low_comp=1800, high_comp=700,
@@ -95,4 +104,5 @@ python -m unittest discover -s dynamics_analyze/tests -v
 這些呼叫取代了原本尚未定義的 `Cornering_ramp_to_max`、`Half_rollcenter_all_model` 與 `breaking`。
 
 測試涵蓋剛性與阻尼比、線性公式比對、KC 物件替換、非線性系統、motion ratio、
-四種 Quarter 的完整凸起路面軌跡、兩種半車的兩秒模擬，以及從實驗目錄匯入。
+線性 Quarter 的完整凸起路面軌跡、tender 的串聯剛性切換與凸起路面模擬、
+兩種半車的兩秒模擬，以及從實驗目錄匯入。

@@ -1,6 +1,6 @@
 # 懸吊模型改進方向
 
-本文件整理 `dynamics_analyze`、`front_view`、`Suspension_sys` 三個主要資料夾的後續改進方向。重點不是一次大改，而是把目前已經能運作的研究型程式，逐步整理成更穩定、可重複驗證、可擴充的懸吊分析工具。
+本文件整理 `dynamics_analyze`、`suspension_geo`、`Suspension_sys` 三個主要資料夾的後續改進方向。重點不是一次大改，而是把目前已經能運作的研究型程式，逐步整理成更穩定、可重複驗證、可擴充的懸吊分析工具。
 
 整理日期：2026-08-29
 
@@ -11,7 +11,7 @@
 | 資料夾 | 現在定位 | 建議未來定位 |
 | --- | --- | --- |
 | `dynamics_analyze/` | 簡化動態模型與時間域測試沙盒。 | 作為模型驗證與基準測試平台。 |
-| `front_view/` | 前視懸吊幾何與 RC/camber map 工具。 | 作為幾何資料產生器，輸出可被動態模型使用的查表資料。 |
+| `suspension_geo/` | 依 `fv/`、`sv/`、`tv/`、`we3D/` 分類的懸吊幾何工具與分析結果。 | 作為幾何資料產生器，輸出可被動態模型使用的查表資料。 |
 | `Suspension_sys/` | 全車懸吊整合模型。 | 作為主模擬核心，整合 K&C、幾何、輪胎與車身動態。 |
 
 建議的總體改進方向：
@@ -19,7 +19,7 @@
 1. 統一資料格式與命名規則。
 2. 把 debug/實驗腳本與核心模型分離。
 3. 建立可重複執行的測試案例。
-4. 讓 `front_view` 的幾何 map 可以接到 `Suspension_sys` 的 geometry lookup。
+4. 讓 `suspension_geo` 的幾何 map 可以接到 `Suspension_sys` 的 geometry lookup。
 5. 讓 `dynamics_analyze` 成為 `Suspension_sys` 的簡化驗證基準。
 6. 減少 import 時自動執行、印字或產生圖表的行為。
 
@@ -82,9 +82,9 @@ data = DATA_FR
 - 每當 `Suspension_sys` 主模型改動時，用簡化模型做 sanity check。
 - 逐步把 quarter/LR/FR 模型與全車模型的參數來源合併，避免同一個車重、輪距、剛度在多個檔案重複定義。
 
-## `front_view/` 改進方向
+## `suspension_geo/` 改進方向
 
-`front_view` 的核心價值是產生幾何 map。它應該逐步從「互動畫圖工具」升級成「幾何資料產生器」。
+`suspension_geo` 的核心價值是產生幾何 map。它應該逐步從「互動畫圖工具」升級成「幾何資料產生器」。
 
 ### 短期改進
 
@@ -95,11 +95,11 @@ data = DATA_FR
   - 但 `Link` 類別使用 `start` / `end` 屬性。
   - 建議確認是否應改成更新 `end`，避免 force line 沒有跟著 IC 正確更新。
 - `geometry.Link` 中 `angle` property 定義兩次，建議刪除重複定義。
-- 為 `suspension_kinematics_data.pkl` 加上版本與參數 metadata。
+- 為 `fv/suspension_kinematics_data.pkl` 加上版本與參數 metadata。
 
 ### 中期改進
 
-- 將 `sus_fv_maping.py` 的掃描輸出格式標準化，例如：
+- 將 `fv/sus_fv_maping.py` 的掃描輸出格式標準化，例如：
 
 ```text
 geometry_map/
@@ -116,7 +116,7 @@ geometry_map/
 
 ### 長期改進
 
-- 讓 `front_view` 成為正式的 suspension geometry preprocessor。
+- 讓 `suspension_geo` 成為正式的 suspension geometry preprocessor。
 - 支援前/後懸吊各自不同幾何。
 - 支援輸出：
   - roll center height vs roll/heave
@@ -175,7 +175,7 @@ N = Ft_kc
 
 ### 長期改進
 
-- 將 `front_view` 產生的 RC/camber map 接入 `model/sus_geo/create_table_geometry()`。
+- 將 `suspension_geo/fv` 產生的 RC/camber map 接入 `model/sus_geo/create_table_geometry()`。
 - 將輪胎 Pacejka 模型與垂向懸吊模型更明確整合：
   - `N` 由懸吊垂向模型輸出。
   - Pacejka 使用 `N`、`SA`、`SL`、`IA` 計算 `Fx/Fy/Mz`。
@@ -204,7 +204,7 @@ road / driver input
 ### 建議資料流
 
 ```text
-front_view/
+suspension_geo/
   產生幾何 map
       |
       v
@@ -264,7 +264,7 @@ config/
 2. 統一 wheel order、單位與正負號文件。
 3. 整理 debug print。
 4. 為 `dynamics_analyze` 建立基本 benchmark cases。
-5. 為 `front_view` 的 pkl 加上 metadata，並輸出 geometry lookup table。
+5. 為 `suspension_geo/fv` 的 pkl 加上 metadata，並輸出 geometry lookup table。
 6. 將 lookup table 接進 `Suspension_sys/model/sus_geo/`。
 7. 建立全車模型 regression tests。
 8. 再做架構重構與命名整理。
@@ -273,7 +273,7 @@ config/
 
 理想狀態下，三個資料夾可以形成一條清楚的開發鏈：
 
-- `front_view` 負責幾何。
+- `suspension_geo` 負責幾何。
 - `dynamics_analyze` 負責簡化模型驗證。
 - `Suspension_sys` 負責完整全車模擬。
 
