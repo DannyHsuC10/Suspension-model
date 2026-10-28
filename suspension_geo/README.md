@@ -9,9 +9,16 @@
 ```text
 suspension_geo/
 ├── car.py                           # 各視角共用的車輛與前後懸吊參數
+├── analysis_settings.py             # 分析範圍、掃描解析度、繪圖與介面設定
 ├── geometry.py                      # 共用 Point、Link、RigidBody2D 等物件
 ├── Geometric_Analysis.py            # 前視求解器與側視共用的幾何運算
 ├── combined_camber.py              # 左右懸吊抬升與轉向的 camber 角度疊加
+├── data_signals_camber.py           # CSV 四輪行程、前輪轉向與 roll → 四輪 camber
+├── data_signals.csv                 # 四輪簧上/簧下位移、轉向與前後 roll 輸入
+├── data_signals_camber.csv          # 逐筆四輪 camber gain 角度與 camber 輸出
+├── data_signals_camber.png          # 位移、camber gain、懸吊/輪胎/總 roll 與 camber 時序圖
+├── data_signals_camber_front_inside_outside.png # 依橫向加速度判斷的前輪內外側 camber 比較
+├── data_signals_camber_vehicle_comparison.png # 速度、三軸加速度、前輪轉角與內外側 camber 比較
 ├── visualization.py                 # 共用 Matplotlib 繪圖工具
 ├── data/
 │   └── data_run15_selected.csv       # FV、SV 共用的 Run 15 輸入資料
@@ -57,11 +64,96 @@ python -m suspension_geo.tv.sus_tv_v2
 python -m suspension_geo.we3D.sus_3Dwe_v3
 python -m suspension_geo.we3D.steering_camber --left 25 --right 18
 python -m suspension_geo.combined_camber --steer-left 25 --steer-right 18 --travel-left-mm 10 --travel-right-mm -5
+python -m suspension_geo.data_signals_camber
 ```
 
 也可直接執行腳本，例如 `python suspension_geo/fv/sus_fv_v5.py`，或進入 `fv/` 後執行 `python sus_fv_v5.py`。Python 環境需要 `numpy`、`scipy`、`pandas` 與 `matplotlib`。
 
 FV、SV 的 Run 15 分析預設都讀取 `data/data_run15_selected.csv`，並把 CSV 與 PNG 輸出到各自的 `fv/` 或 `sv/`，不受執行時所在目錄影響。可用 `--input`、`--output`、`--figure` 指定其他路徑。FV mapping 的 PKL 固定寫入 `fv/suspension_kinematics_data.pkl`，結果繪圖也從相同位置讀取。
+
+### 使用 data_signals.csv 計算四輪 Camber
+
+執行 `data_signals_camber.py`，預設讀取腳本同目錄的 `data_signals.csv`，產生 `data_signals_camber.csv`、`data_signals_camber.png`、`data_signals_camber_front_inside_outside.png` 與 `data_signals_camber_vehicle_comparison.png`。路徑不受執行目錄影響；輸入檔不會被覆寫。輸出保留原始列順序與全部欄位，另外加入四輪的中間角度與最終 camber、前後軸的輪胎變形 roll 與總 roll，以及前輪內外側的輪位與對地 camber。
+
+```powershell
+python -m suspension_geo.data_signals_camber
+
+# 使用本專案既有 Python 環境
+& .\Suspension_sys\.venv\Scripts\python.exe -m suspension_geo.data_signals_camber
+
+# 自訂初始 camber，順序為 FL、FR、RL、RR，單位 deg
+python -m suspension_geo.data_signals_camber --static-camber -2 -2 -1.5 -1.5
+
+# 自訂路徑，或只輸出 CSV
+python -m suspension_geo.data_signals_camber --input suspension_geo/data_signals.csv --output suspension_geo/data_signals_camber.csv --no-plot
+```
+
+需要 `numpy`、`scipy`；繪圖另需 `matplotlib`。也可直接執行 `python suspension_geo/data_signals_camber.py`。檔案上方的 `STATIC_CAMBER_DEG` 可修改四輪初始 camber；未提供時均為 **0°**，不假設量測或車輛設定中另有靜態負 camber，也不把第一筆資料當成零點。
+
+必要輸入欄位為 `time_s`、四輪的 `zs_FL_mm`～`zs_RR_mm` 與 `zu_FL_mm`～`zu_RR_mm`、`steer_FL_deg`、`steer_FR_deg`、`roll_front_deg`、`roll_rear_deg`。位移為 mm，角度為 deg。後輪只計算懸吊行程；若提供 `steer_RL_deg`、`steer_RR_deg`，其值需為零。本次 CSV 的後輪轉向皆為零。
+
+計算順序：
+
+1. 各輪依需求保留位移差 `d = zs - zu`。`zs` 與 `zu` 向上為正，因此 `d > 0` 為伸長；既有 FV 求解器以壓縮為正，輸入行程須用 `q = -d = zu - zs`。
+2. 前輪使用 `SuspensionF`，後輪使用 `SuspensionR`，套用各自的輪距與負載輪胎半徑。由 `combined_camber.py` 計算有限行程造成的 FV camber 角度變化，前輪另加 `steering_camber.py` 的轉向角度變化。
+3. **先把 FV camber 換回相對車身的角度。**原求解器的 camber 已相對左右接地點連線計算。若該連線角度為 `α`，左輪 FV 變化加 `α`、右輪減 `α`，才能取得車身座標下的 camber 變化，再與轉向項疊加。
+4. CSV 的 `roll_front_deg`、`roll_rear_deg` 視為純懸吊幾何造成的 roll，另外以左右輪 `zu` 的高度差計算輪胎變形造成的 roll，再相加得到總 roll。依需求使用小角度近似 `φ_tire [rad] = (zu_left - zu_right) / track`，並轉成 deg；`zu` 單位為 mm，所以輪距也換成 mm。輪距讀取 `Car.tf = 1.250 m`、`Car.tr = 1.240 m`，即前軸 1250 mm、後軸 1240 mm。不扣除第一筆或平均值，同軸兩側 `zu` 相等時輪胎 roll 為零。
+5. 對地 camber 使用各軸的總 roll。依 `Suspension_sys/Vehicle_status.py::body_to_corner()`，正 roll 代表左側抬高；因此左輪減總 roll，右輪加總 roll。懸吊行程仍由 `zu - zs` 計算，FV 與轉向造成的車身相對 camber gain 定義不變。
+
+```text
+tire_roll_front = (zu_FL_mm - zu_FR_mm) / 1250 × 180/π
+tire_roll_rear  = (zu_RL_mm - zu_RR_mm) / 1240 × 180/π
+total_roll_front = roll_front + tire_roll_front
+total_roll_rear  = roll_rear  + tire_roll_rear
+
+camber_gain_FL = FV_body_FL + steering_FL
+camber_gain_FR = FV_body_FR + steering_FR
+camber_gain_RL = FV_body_RL
+camber_gain_RR = FV_body_RR
+
+camber_FL = static_FL + camber_gain_FL - total_roll_front
+camber_FR = static_FR + camber_gain_FR + total_roll_front
+camber_RL = static_RL + camber_gain_RL - total_roll_rear
+camber_RR = static_RR + camber_gain_RR + total_roll_rear
+```
+
+以上角度均為 deg，正 camber 為輪胎上端向車外、負為向車內。這裡依「角度疊加」的需求，`camber_gain` 指相對車身的**有限角度變化**，不是 deg/mm 的局部導數，也不以局部導數乘上有限行程估算角度。原 FV camber 不能直接再加減總 roll，否則會混入接地點連線傾角。
+
+| 新增欄位（`wheel` 替換為 FL、FR、RL、RR） | 定義 |
+| --- | --- |
+| `relative_displacement_{wheel}_mm` | 原始 `zs - zu`，伸長正。 |
+| `wheel_travel_{wheel}_mm` | 求解器使用的 `zu - zs`，壓縮正。 |
+| `static_camber_{wheel}_deg` | 指定的初始 camber。 |
+| `fv_camber_gain_{wheel}_deg` | 換回車身基準後，懸吊行程造成的角度變化。 |
+| `steering_camber_gain_{wheel}_deg` | 轉向造成的角度變化；後輪為 0。 |
+| `camber_gain_{wheel}_deg` | 上述兩項角度變化之和，相對車身。 |
+| `roll_camber_{wheel}_deg` | 懸吊與輪胎總 roll 貢獻，左輪為負總 roll、右輪為正總 roll。 |
+| `camber_{wheel}_deg` | 初始 camber + gain + 總 roll 貢獻，相對水平地面。 |
+| `fv_contact_line_front_deg` / `fv_contact_line_rear_deg` | FV 求解器接地點連線的傾角，僅供換算基準與檢查。 |
+| `tire_roll_front_deg` / `tire_roll_rear_deg` | 左右 `zu` 高度差除以各軸輪距，再由 rad 轉 deg 的輪胎變形 roll。 |
+| `total_roll_front_deg` / `total_roll_rear_deg` | 原始 CSV 懸吊 roll + 輪胎變形 roll；原始 `roll_front_deg`、`roll_rear_deg` 欄位保留。 |
+| `front_solver_ok` / `rear_solver_ok` | 該筆、該軸是否完整計算成功。 |
+| `front_error` / `rear_error` | 缺值、非數值或幾何不可達時的具體原因。 |
+
+資料列不會因計算失敗被刪除：受影響結果留為 `NaN` 並標明原因，另一軸可繼續計算。缺少 roll 時仍保留可計算的車身相對 camber gain，最終對地 camber 留為 `NaN`。程式會回報前後軸失敗筆數；有失敗列時結束代碼為 1。缺少必要欄位或時間非遞增則停止並顯示錯誤。
+
+前輪內外側比較使用 `ay_m_s2`（m/s²），沿用車身座標 **X 向前、Y 向左、Z 向上**；加速度指向彎內，因此依下表判斷，不使用方向盤轉角或 roll 決定內外側：
+
+| 橫向加速度 | 轉彎方向 | 外側前輪 | 內側前輪 |
+| --- | --- | --- | --- |
+| `ay > 0` | 左轉 | FR | FL |
+| `ay < 0` | 右轉 | FL | FR |
+| `ay = 0`、缺值或非有限值 | 無法分類 | 空白 | 空白 |
+
+比較圖包含內外側對地 camber 時序、`外側 − 內側` 角度差與橫向加速度。保留原本的 camber 正負號；角度差小於零表示外側 camber 比內側更負。直行或無法分類時 camber 留為 `NaN`；左右轉切換處斷線，避免將不同實體輪胎連成同一條連續曲線。平均值與範圍只使用內外兩輪皆有效的轉彎樣本，為逐筆樣本統計，未依時間或輪胎負載加權。
+
+CSV 另加入 `front_outside_wheel`、`front_inside_wheel`、`camber_front_outside_deg`、`camber_front_inside_deg` 與 `camber_front_outside_minus_inside_deg`。產生比較圖時必須有 `ay_m_s2` 欄位；`--no-plot` 關閉全部三張圖。可用 `--front-comparison-figure 路徑.png` 自訂內外側比較圖位置。來源若採 Y 向右為正，請先反轉 `ay_m_s2` 再使用此判斷。
+
+`data_signals_camber_vehicle_comparison.png` 以同一時間軸上下對齊四個區塊：車速 `speed_km_h`（km/h）、三軸加速度 `ax_m_s2`／`ay_m_s2`／`az_m_s2`（m/s²）、左右前輪輪端轉角 `steer_FL_deg`／`steer_FR_deg`（deg）、前輪內外側對地 camber（deg）。左右轉向同樣以左轉為正，camber 沿用依 `ay` 分類與換輪斷線的規則。可用 `--vehicle-comparison-figure 路徑.png` 自訂輸出；產生此圖時另需車速與三軸加速度欄位。
+
+本分析沿用既有的角度疊加近似：主銷 KPI/caster 不隨懸吊行程更新；pitch、bump steer、轉向頂升平衡與完整 3D 旋轉耦合未納入。左右 `zu` 差依本次資料定義解讀為輪胎變形造成的 roll，並以小角度比值加入懸吊 roll；最終角度仍以水平地面為基準，沒有另外扣除道路橫坡。
+
+驗證：`python -m unittest suspension_geo.tests.test_data_signals_camber -v`。
 
 ### 懸吊抬升與轉向 Camber 疊加
 
@@ -142,7 +234,7 @@ CSV 欄位為 `side, point, description, x_mm, y_mm`，共 26 個點：左右各
 
 ```text
 car.py
-  定義車輛、輪胎、前懸吊設計參數
+  定義車輛、輪胎、前後懸吊設計參數
       |
 Geometric_Analysis.py
   由參數計算靜態幾何點，建立左右懸吊物件
@@ -154,10 +246,10 @@ visualization.py
   將幾何物件轉成 Matplotlib 圖形
       |
 fv/sus_fv_v5.py
-  互動式前視圖，滑桿調整左右 lower arm angle
+  互動式前視圖，滑桿調整左右 lower arm angle（介面設定來自 analysis_settings.py）
       |
 fv/sus_fv_maping.py
-  批次掃描左右角度，輸出 fv/suspension_kinematics_data.pkl
+  依 analysis_settings.py 的範圍與步數掃描，輸出 fv/suspension_kinematics_data.pkl
       |
 fv/rc_camber_map.py
   讀取 pkl，畫出 camber surface 與 roll center map
@@ -167,7 +259,8 @@ fv/rc_camber_map.py
 
 | 檔案 | 內容與目的 |
 | --- | --- |
-| `car.py` | 定義 `Car` 車輛/輪胎參數物件，以及 `SuspensionF` 前懸吊幾何與分析設定物件。 |
+| `car.py` | 定義 `Car` 車輛/輪胎參數，以及 `SuspensionF`、`SuspensionR` 前後懸吊實體設計參數。 |
+| `analysis_settings.py` | 定義獨立的 `AnalysisSettings`，管理分析範圍、掃描步數、圖窗、滑桿、背景外框與側視座標參考。 |
 | `geometry.py` | 基礎 2D 幾何物件。包含 `Point`、`Link`、`RigidBody2D`、`Polygon`、`Wheel`、`Body`。 |
 | `Geometric_Analysis.py` | 前視懸吊幾何與運動學核心。負責算靜態點位、上下控制臂、羊角、instant center、roll center、camber、行程反算等。 |
 | `combined_camber.py` | 指定左右輪端轉角與輪側抬升量，疊加 FV 與轉向 camber 角度變化，另列各自局部 gain 與前視 RC。 |
@@ -213,12 +306,13 @@ FV mapping 與 `SuspensionDirectSolver` 共用 `SuspensionSide.calc_camber_angle
 
 ## `car.py`
 
-`Car` 只放車輛與輪胎資料；`SuspensionF` 與 `SuspensionR` 分別放前、後懸吊硬點、側視 anti 設定與幾何分析的顯示/掃描設定。
+參數分成兩類獨立物件：`car.py` 的 `Car`、`SuspensionF`、`SuspensionR` 保留實體車輛與懸吊設計資料；`analysis_settings.py` 的 `AnalysisSettings` 管理分析、顯示與介面設定。
 
 | 物件 | 主要內容 |
 | --- | --- |
-| `Car` | 軸距、重心位置、前後輪距、質量、重力、車底高度、車體截面、輪胎參數與負載輪胎半徑。 |
-| `SuspensionF` / `SuspensionR` | 各軸的前視 `scrub_radius`、`kpi`、`h_rc`、`fvsa`、`Au`/`Al`、車身側硬點，以及側視 caster、mechanical trail、anti-dive/anti-lift 與顯示設定。側視圖中的前後輪中心距使用 `Car.l`。 |
+| `Car` | 軸距、重心位置、前後輪距、質量、重力、車底高度、輪胎參數與負載輪胎半徑。 |
+| `SuspensionF` / `SuspensionR` | 各軸的前視 `scrub_radius`、`kpi`、`h_rc`、`fvsa`、`Au`/`Al`、車身側硬點，以及側視 caster、mechanical trail、煞車分配與 anti-dive/anti-lift。側視圖中的前後輪中心距使用 `Car.l`。 |
+| `AnalysisSettings` | 掃描行程與步數、圖窗尺寸、座標範圍、滑桿位置與範圍、車體背景外框、側視座標參考與輔助線長度。 |
 
 前視分析會同時建立兩個物件，再交給幾何 helper：
 
@@ -236,8 +330,8 @@ sus_helper = ga.SusGeometryHelper(car, suspension_f)
 前視圖的前、後軸車身側接點均由各自懸吊物件的兩個 X 設定決定，取代原本的 `sus_contact` 斜線端點。`SuspensionF` 設定如下：
 
 ```python
-self.lower_mount_x = 208.33638495469026 / 1000  # 下控制臂車身側 X [m]
-self.upper_mount_x = 237.88313825217958 / 1000  # 上控制臂車身側 X [m]
+self.lower_mount_x = 210 / 1000  # 下控制臂車身側 X [m]
+self.upper_mount_x = 255 / 1000  # 上控制臂車身側 X [m]
 ```
 
 `SuspensionR` 沿用原設定的 X 尺寸，獨立設定為：
@@ -247,7 +341,7 @@ self.lower_mount_x = 205 / 1000  # 後軸下控制臂車身側 X [m]
 self.upper_mount_x = 250 / 1000  # 後軸上控制臂車身側 X [m]
 ```
 
-兩個值均為右側的非負 X 座標，左側自動鏡像為負。前軸四個接點的 X 為下側 ±208.33638495469026 mm、上側 ±237.88313825217958 mm；後軸則為下側 ±205 mm、上側 ±250 mm，各軸可分別修改。Y 不需輸入：以各自羊角接點 `(x_u, y_u)` 與設計瞬心 `(x_ic, y_ic)`，直接代入 `y = y_u + (x_mount - x_u) * (y_ic - y_u) / (x_ic - x_u)`。這樣會保留各軸靜態 FVSA 與 Roll Center 設計條件；改變 KPI、scrub radius、FVSA 或 RC 高度時，Y 會重新計算，而設定的 X 保持固定。滑桿動作期間，車身側接點的 X、Y 均固定。
+兩個值均為右側的非負 X 座標，左側自動鏡像為負。前軸四個接點的 X 為下側 ±210 mm、上側 ±255 mm；後軸則為下側 ±205 mm、上側 ±250 mm，各軸可分別修改。Y 不需輸入：以各自羊角接點 `(x_u, y_u)` 與設計瞬心 `(x_ic, y_ic)`，直接代入 `y = y_u + (x_mount - x_u) * (y_ic - y_u) / (x_ic - x_u)`。這樣會保留各軸靜態 FVSA 與 Roll Center 設計條件；改變 KPI、scrub radius、FVSA 或 RC 高度時，Y 會重新計算，而設定的 X 保持固定。滑桿動作期間，車身側接點的 X、Y 均固定。
 
 `Car` 的主要參數包含：
 
@@ -258,10 +352,47 @@ self.upper_mount_x = 250 / 1000  # 後軸上控制臂車身側 X [m]
 | `h_cog` | 重心高度。 |
 | `m`, `w` | 車重與重量。 |
 | `bottom` | 車底距地高度。 |
-| `body_face_f` | 前視圖使用的車體截面 polygon。 |
 | `free_radius`, `load_Radius`, `tire_width` | 輪胎自由半徑、負載半徑與胎寬。 |
 
 `SuspensionF` 與 `SuspensionR` 的參數名稱都不加 `_f` 或 `_r` 後綴，由物件本身表示軸別。側視圖使用前軸為正 x 方向，後軸沿 x 方向反轉；輪心 x 間距固定為 `Car.l`。兩個側視滑桿分別改變前後軸 Al 高度。前、後軸參數可在各自的 `SuspensionF`、`SuspensionR` 中獨立調整。
+
+## `analysis_settings.py`
+
+`AnalysisSettings` 與車輛參數分開建立，供 FV 互動圖、mapping、最佳化與 SV 工具使用。修改預設分析或介面設定時，編輯這個檔案；幾何求解器 `SusGeometryHelper` 仍只依賴 `Car` 與各軸懸吊參數。
+
+| 設定 | 用途與預設值 |
+| --- | --- |
+| `front_view_target_travel` | FV 掃描半行程 0.025 m，並非實車機械行程限制。 |
+| `front_view_mapping_steps` | 每輪 30 點，左右組合共 900 點。 |
+| `front_view_figure_size` / `side_view_figure_size` | FV `(8, 6)`、SV `(10, 8)` inches。 |
+| `front_view_slider_axes` / `side_view_slider_axes` | 滑桿在圖窗中的位置。 |
+| `front_view_plot_bottom` / `side_view_plot_bottom` | 圖窗底部為滑桿保留的空間。 |
+| `front_view_x_limits` / `front_view_y_limits` | FV 圖的 X/Y 顯示範圍。 |
+| `front_view_body_half_width` / `front_view_body_top` | FV 車體背景外框半寬 0.21 m、頂部高度 0.5 m。 |
+| `contact_point_sv` / `wheel_center_x_sv` | SV 局部接地參考 `(0, 0)` 與後輪心圖面原點 `0` m。 |
+| `kingpin_length_sv` / `side_view_path_half_length` | 主銷輔助線長 0.6 m、運動路徑繪製半長 0.5 m。 |
+| `side_view_wheel_outline_points` | 輪胎外框 48 個頂點。 |
+| `side_view_front_travel_limit` / `side_view_rear_travel_limit` | SV 前、後滑桿半行程分別為 0.03 / 0.025 m。 |
+
+例如，在自訂分析中分開使用實體參數與分析設定：
+
+```python
+from suspension_geo.car import Car, SuspensionF
+from suspension_geo.analysis_settings import AnalysisSettings
+from suspension_geo import Geometric_Analysis as ga
+
+car = Car()
+suspension = SuspensionF()
+settings = AnalysisSettings()
+settings.front_view_mapping_steps = 40
+
+helper = ga.SusGeometryHelper(car, suspension)
+right = ga.SuspensionSide("Right")
+right.setup_right_side(helper.calc_static_points())
+limits = ga.calculate_theta_limits(right, settings.front_view_target_travel)
+```
+
+原先 `SuspensionF`／`SuspensionR` 的掃描與介面欄位已移到 `AnalysisSettings`，不再由懸吊物件提供。SV 滑桿行程改為上表的前、後軸欄位；`Car.body_face_f` 改為 `settings.front_view_body_outline(car.bottom)`，讓背景外框依目前的實體車底高度建立。`SideSuspension(..., settings=settings)` 可傳入獨立設定，未提供時使用該側視模組共用的 `analysis_settings`。
 
 ## `geometry.py`
 

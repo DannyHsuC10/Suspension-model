@@ -72,9 +72,9 @@ for i, steer in enumerate(steer_range):
     matrix = rotation_matrix(axis_dir, np.radians(steer))
     contact_path[i] = matrix @ initial_contact_point
     centerline_direction = matrix @ np.array([0.0, 1.0, 0.0])
-    # Smallest angle between the tire centerline and the horizontal ground plane.
+    # Signed elevation of the rotated +Y wheel axis: positive up, negative down.
     tilt_angles_deg[i] = np.degrees(np.arctan2(
-        abs(centerline_direction[2]), np.linalg.norm(centerline_direction[:2])
+        centerline_direction[2], np.linalg.norm(centerline_direction[:2])
     ))
     for j, force in enumerate(unit_forces):
         moment_arms[i, j] = np.dot(np.cross(contact_path[i], force), axis_dir)
@@ -123,10 +123,11 @@ ax_arms.grid(True)
 ax_arms.legend(ncol=3)
 
 tilt_line, = ax_tilt.plot(steer_range, tilt_angles_deg, color="tab:purple",
-                          label="Tire tilt angle")
+                          label="+Y wheel axis: +up / -down")
+ax_tilt.axhline(0.0, color="gray", linewidth=0.8)
 ax_tilt.set_xlabel("Steer Angle [deg]")
-ax_tilt.set_ylabel("Angle to Ground Plane [deg]")
-ax_tilt.set_title("Tire Centerline Tilt")
+ax_tilt.set_ylabel("Signed Angle to Ground Plane [deg]")
+ax_tilt.set_title("Signed Tire Centerline Tilt")
 ax_tilt.grid(True)
 ax_tilt.legend()
 
@@ -159,7 +160,7 @@ def update(steer_deg):
     arm_length = np.linalg.norm(contact - projection)
     centerline_direction = matrix @ np.array([0.0, 1.0, 0.0])
     tilt_angle_deg = np.degrees(np.arctan2(
-        abs(centerline_direction[2]), np.linalg.norm(centerline_direction[:2])
+        centerline_direction[2], np.linalg.norm(centerline_direction[:2])
     ))
 
     # Matplotlib's 3D surface has no in-place coordinate setter, so replace it.
@@ -196,7 +197,7 @@ def update(steer_deg):
     )
     arm_text.set_text(
         f"Steer = {steer_deg:.1f}°    Contact to axis = {arm_length * 1000:.1f} mm\n"
-        f"Tire centerline angle to ground = {tilt_angle_deg:.2f}°"
+        f"Tire centerline angle to ground = {tilt_angle_deg:+.2f}°"
     )
     for marker in contact_markers:
         marker.set_xdata([steer_deg, steer_deg])

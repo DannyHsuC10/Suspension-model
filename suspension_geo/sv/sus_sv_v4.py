@@ -13,6 +13,7 @@ from matplotlib.widgets import Slider
 from suspension_geo import geometry as ge
 from suspension_geo import Geometric_Analysis as ga
 from suspension_geo.car import Car, SuspensionF, SuspensionR
+from suspension_geo.analysis_settings import AnalysisSettings
 from suspension_geo.visualization import LinkPlot, PointPlot, PolygonPlot
 
 
@@ -36,6 +37,7 @@ STYLE = {
 car = Car()
 suspension_f = SuspensionF()
 suspension_r = SuspensionR()
+analysis_settings = AnalysisSettings()
 
 
 def calc_anti_angle(anti_percent, axle_brake_bias, cg_height, wheelbase):
@@ -67,14 +69,16 @@ class Scene:
 class SideSuspension:
     """One rigid wheel/upright assembly moving on fixed Au/Al travel paths."""
 
-    def __init__(self, name, suspension, axle_index, direction_sign, center_x, color):
+    def __init__(self, name, suspension, axle_index, direction_sign, center_x, color,
+                 *, settings=None):
         self.name = name
         self.suspension = suspension
+        self.settings = analysis_settings if settings is None else settings
         self.axle_index = axle_index
         self.direction_sign = direction_sign
         self.color = color
 
-        self.contact_point = np.asarray(suspension.contact_point_sv, dtype=float).copy()
+        self.contact_point = np.asarray(self.settings.contact_point_sv, dtype=float).copy()
         self.contact_point += np.array([center_x, 0.0])
         self.wheel_center = np.array(
             [center_x, car.load_Radius[axle_index]], dtype=float
@@ -118,7 +122,7 @@ class SideSuspension:
         )
         self.kingpin_top = (
             self.kingpin_ground
-            + suspension.kingpin_length_sv * self.kingpin_direction
+            + self.settings.kingpin_length_sv * self.kingpin_direction
         )
 
         self.kingpin_wc = self._point_on_kingpin(self.wheel_center[1])
@@ -142,7 +146,7 @@ class SideSuspension:
         wheel_angles = np.linspace(
             0.0,
             2.0 * np.pi,
-            suspension.side_view_wheel_outline_points,
+            self.settings.side_view_wheel_outline_points,
             endpoint=False,
         )
         self.wheel_outline_pts = [
@@ -191,7 +195,7 @@ class SideSuspension:
         radial = self.initial_ic - point.pos
         radial /= np.linalg.norm(radial)
         tangent = np.array([-radial[1], radial[0]])
-        half_length = self.suspension.side_view_path_half_length
+        half_length = self.settings.side_view_path_half_length
         start = ge.Point(point.pos - half_length * tangent, f"{label} start")
         end = ge.Point(point.pos + half_length * tangent, f"{label} end")
         return ge.Link(start, end, label), tangent
@@ -269,14 +273,14 @@ class SideSuspension:
 
 
 if __name__ == '__main__':
-    fig, ax = plt.subplots(figsize=suspension_f.side_view_figure_size)
-    fig.subplots_adjust(bottom=suspension_f.side_view_plot_bottom)
+    fig, ax = plt.subplots(figsize=analysis_settings.side_view_figure_size)
+    fig.subplots_adjust(bottom=analysis_settings.side_view_plot_bottom)
     scene = Scene(ax)
 
     # Swap the axle positions while retaining their direction signs: the front axle
     # is one wheelbase left of the rear axle in this plot.
-    front_center_x = suspension_f.wheel_center_x_sv - car.l
-    rear_center_x = suspension_f.wheel_center_x_sv
+    front_center_x = analysis_settings.wheel_center_x_sv - car.l
+    rear_center_x = analysis_settings.wheel_center_x_sv
     front = SideSuspension(
         "Front", suspension_f, axle_index=0, direction_sign=1.0,
         center_x=front_center_x, color=STYLE["wheel"],
@@ -354,20 +358,20 @@ if __name__ == '__main__':
         color=STYLE["pitch_center"], fontsize=9,
     )
 
-    front_slider_ax = fig.add_axes(suspension_f.side_view_slider_axes[0])
-    rear_slider_ax = fig.add_axes(suspension_f.side_view_slider_axes[1])
+    front_slider_ax = fig.add_axes(analysis_settings.side_view_slider_axes[0])
+    rear_slider_ax = fig.add_axes(analysis_settings.side_view_slider_axes[1])
     front_slider = Slider(
         front_slider_ax,
         "Front Al height [m]",
-        front.al_pt.y - suspension_f.side_view_travel_limit,
-        front.al_pt.y + suspension_f.side_view_travel_limit,
+        front.al_pt.y - analysis_settings.side_view_front_travel_limit,
+        front.al_pt.y + analysis_settings.side_view_front_travel_limit,
         valinit=front.al_pt.y,
     )
     rear_slider = Slider(
         rear_slider_ax,
         "Rear Al height [m]",
-        rear.al_pt.y - suspension_r.side_view_travel_limit,
-        rear.al_pt.y + suspension_r.side_view_travel_limit,
+        rear.al_pt.y - analysis_settings.side_view_rear_travel_limit,
+        rear.al_pt.y + analysis_settings.side_view_rear_travel_limit,
         valinit=rear.al_pt.y,
     )
 

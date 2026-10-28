@@ -1,8 +1,16 @@
 import pickle
+import sys
+from pathlib import Path
+
+# Support direct script execution as well as python -m from the project root.
+if __package__ in (None, ""):
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.patches import Circle
 from mpl_toolkits.mplot3d import Axes3D  # 啟用 3D 繪圖
-from pathlib import Path
+from suspension_geo.car import SuspensionF
 current_dir = Path(__file__).resolve().parent
 # ==============================================================================
 # 1. 讀取 PKL 檔案
@@ -95,6 +103,17 @@ scatter = ax_rc.scatter(
     rc_x_matrix.flatten(), rc_y_matrix.flatten(),
     c=left_travel_mm.flatten(), cmap="viridis", s=15,
 )
+# Reference circles use the configured static roll center and radii in meters.
+rc_center = (0.0, SuspensionF().h_rc)
+for radius, color in ((0.05, "tab:orange"), (0.075, "tab:blue"), (0.1, "tab:red")):
+    ax_rc.add_patch(Circle(
+        rc_center, radius, fill=False, edgecolor=color,
+        linestyle="--", linewidth=1.5, label=f"Radius {radius:g} m",
+    ))
+ax_rc.plot(*rc_center, marker="x", color="red", linestyle="none",
+           markersize=8, label="Static Roll Center")
+ax_rc.set_aspect("equal", adjustable="box")
+ax_rc.legend()
 ax_rc.set_title("Dynamic Roll Center Migration")
 ax_rc.set_xlabel("RC X Position [m]")
 ax_rc.set_ylabel("RC Y Position [m]")

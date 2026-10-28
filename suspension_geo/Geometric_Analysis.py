@@ -111,7 +111,6 @@ class SusGeometryHelper:
         self.kpi = suspension_f.kpi
         self.h_rc = suspension_f.h_rc
         self.fvsa = suspension_f.fvsa
-        self.body_face_f = car.body_face_f
         self.lower_mount_x = float(suspension_f.lower_mount_x)
         self.upper_mount_x = float(suspension_f.upper_mount_x)
         mount_x = [self.lower_mount_x, self.upper_mount_x]

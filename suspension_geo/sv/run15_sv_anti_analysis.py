@@ -22,7 +22,9 @@ import numpy as np
 import pandas as pd
 
 from suspension_geo import Geometric_Analysis as ga
-from suspension_geo.sv.sus_sv_v4 import SideSuspension, car, suspension_f, suspension_r
+from suspension_geo.sv.sus_sv_v4 import (
+    SideSuspension, analysis_settings, car, suspension_f, suspension_r,
+)
 
 
 HERE = Path(__file__).resolve().parent
@@ -32,8 +34,8 @@ DEFAULT_FIGURE = HERE / "data_run15_sv_anti.png"
 
 
 def build_axles() -> tuple[SideSuspension, SideSuspension]:
-    front_x = suspension_f.wheel_center_x_sv - car.l
-    rear_x = suspension_f.wheel_center_x_sv
+    front_x = analysis_settings.wheel_center_x_sv - car.l
+    rear_x = analysis_settings.wheel_center_x_sv
     front = SideSuspension(
         "Front", suspension_f, axle_index=0, direction_sign=1.0,
         center_x=front_x, color="tab:blue",

@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D  # 啟用 3D 繪圖
 from scipy.interpolate import griddata
 from suspension_geo.car import Car, SuspensionF
+from suspension_geo.analysis_settings import AnalysisSettings
 from suspension_geo import Geometric_Analysis as ga
 current_dir = Path(__file__).resolve().parent
 
@@ -20,6 +21,7 @@ current_dir = Path(__file__).resolve().parent
 
 car = Car()
 suspension_f = SuspensionF()
+analysis_settings = AnalysisSettings()
 sus_helper = ga.SusGeometryHelper(car, suspension_f)
 
 # 1. 初始化靜態懸吊結構
@@ -32,14 +34,14 @@ left_sus = ga.SuspensionSide("Left", is_left=True)
 left_sus.setup_from_right_template(right_sus)
 
 # 2. 計算關節極限
-target_travel = suspension_f.front_view_target_travel
+target_travel = analysis_settings.front_view_target_travel
 theta0 = right_sus.lower_arm.angle
 theta_down, theta_up = ga.calculate_theta_limits(
     sus=right_sus,
     target_travel=target_travel,)
 
 # 3. 定義掃描網格
-steps = suspension_f.front_view_mapping_steps
+steps = analysis_settings.front_view_mapping_steps
 theta_left_array = np.linspace(theta_down, theta_up, steps)
 theta_right_array = np.linspace(theta_down, theta_up, steps)
 

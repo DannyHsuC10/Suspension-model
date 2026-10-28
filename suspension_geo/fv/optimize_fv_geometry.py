@@ -33,6 +33,7 @@ from scipy.optimize import brute, differential_evolution
 
 from suspension_geo import Geometric_Analysis as ga
 from suspension_geo.car import Car, SuspensionF
+from suspension_geo.analysis_settings import AnalysisSettings
 
 
 HEIGHT_BOUNDS_MM = (-5, 50)
@@ -50,11 +51,12 @@ PENALTY_FACTOR = 3.0
 INVALID_COST = 1e12
 NORMALIZATION_EPS = 1e-12
 OUTPUT_DIR = Path(__file__).resolve().parent / "optimization_results"
+analysis_settings = AnalysisSettings()
 
 
 @dataclass(frozen=True)
 class Settings:
-    steps: int = SuspensionF().front_view_mapping_steps
+    steps: int = analysis_settings.front_view_mapping_steps
     rc_weight: float = 1.0
     camber_weight: float = 1.0
     camber_penalty: str = "global"
@@ -136,7 +138,7 @@ def build_mapping(height_mm: int, fvsa_mm: int, steps: int) -> dict[str, np.ndar
     right.setup_right_side(points)
     ground_y0 = right.gnd.y
     theta_down, theta_up = ga.calculate_theta_limits(
-        right, suspension.front_view_target_travel
+        right, analysis_settings.front_view_target_travel
     )
     thetas = np.linspace(theta_down, theta_up, steps)
     grounds, instant_centers, tire_bottoms = [], [], []
@@ -399,7 +401,7 @@ def plot_history(objective: GeometryObjective, path: Path):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--steps", type=int, default=SuspensionF().front_view_mapping_steps)
+    parser.add_argument("--steps", type=int, default=analysis_settings.front_view_mapping_steps)
     parser.add_argument("--camber-penalty", choices=("point", "global"), default="global")
     parser.add_argument("--rc-weight", type=float, default=1.0, help="RC relative weight after baseline normalization")
     parser.add_argument("--camber-weight", type=float, default=1.0, help="Camber-angle relative weight after baseline normalization")

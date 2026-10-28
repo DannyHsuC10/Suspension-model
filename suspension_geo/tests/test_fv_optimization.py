@@ -7,6 +7,7 @@ import numpy as np
 
 from suspension_geo import Geometric_Analysis as ga
 from suspension_geo.car import Car, SuspensionF
+from suspension_geo.analysis_settings import AnalysisSettings
 from suspension_geo.fv.optimize_fv_geometry import (
     CAMBER_LIMIT_DEG, FVSA_STEP_MM, GRID_SIZE, RC_LIMIT_MM,
     START_FVSA_MM, START_HEIGHT_MM, Y_BEST_MM,
@@ -282,7 +283,7 @@ class MappingTests(unittest.TestCase):
                 right.setup_right_side(helper.calc_static_points())
                 left = ga.SuspensionSide("Left", is_left=True)
                 left.setup_from_right_template(right)
-                limits = ga.calculate_theta_limits(right, suspension.front_view_target_travel)
+                limits = ga.calculate_theta_limits(right, AnalysisSettings().front_view_target_travel)
                 angles = np.linspace(*limits, steps)
                 y0 = right.gnd.y
                 for i, theta_l in enumerate(angles):
