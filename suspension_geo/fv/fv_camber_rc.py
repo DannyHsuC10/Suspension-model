@@ -5,11 +5,6 @@ from pathlib import Path
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-import pickle
-import numpy as np
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D  # 啟用 3D 繪圖
-from scipy.interpolate import griddata
 from suspension_geo.car import Car, SuspensionF
 from suspension_geo import Geometric_Analysis as ga
 
@@ -35,6 +30,8 @@ solver = ga.SuspensionDirectSolver(sus_helper, left_sus, right_sus)
 
 # 範例
 if __name__ == "__main__":
+    print("Camber gain 定義：另一側行程固定，各輪相對地面的 camber 對自身壓縮行程之局部斜率。")
+    print("單位 deg/mm；負值代表壓縮時增加負 camber。\n")
     # ------------------------------------------------------------------------------
     # 情境 A: 我知道左右關節角度，想知道即時的 Camber & RC
     # ------------------------------------------------------------------------------
@@ -44,6 +41,8 @@ if __name__ == "__main__":
     print(f"Roll Center 座標 : X={res_a['rc_pos'][0]:.4f} m, Y={res_a['rc_pos'][1]:.4f} m")
     print(f"左輪 Camber      : {res_a['camber_left_deg']:.3f}°")
     print(f"右輪 Camber      : {res_a['camber_right_deg']:.3f}°")
+    print(f"左輪 Camber Gain : {res_a['camber_gain_left_deg_per_mm']:+.6f} °/mm")
+    print(f"右輪 Camber Gain : {res_a['camber_gain_right_deg_per_mm']:+.6f} °/mm")
 
     # ------------------------------------------------------------------------------
     # 情境 B: 車身目前處於下沉 10mm (Heave=0.01m)、側傾 1.5 度 (Roll=1.5 deg)，求 Camber & RC
@@ -56,6 +55,8 @@ if __name__ == "__main__":
     print(f"Roll Center 座標       : X={res_b['rc_pos'][0]:.4f} m, Y={res_b['rc_pos'][1]:.4f} m")
     print(f"左輪 Camber            : {res_b['camber_left_deg']:.3f}°")
     print(f"右輪 Camber            : {res_b['camber_right_deg']:.3f}°")
+    print(f"左輪 Camber Gain       : {res_b['camber_gain_left_deg_per_mm']:+.6f} °/mm")
+    print(f"右輪 Camber Gain       : {res_b['camber_gain_right_deg_per_mm']:+.6f} °/mm")
     # ------------------------------------------------------------------------------
     # 情境 C: 左輪上壓 10mm (+0.010m)，右輪下伸 5mm (-0.005m)
     # ------------------------------------------------------------------------------
@@ -74,3 +75,5 @@ if __name__ == "__main__":
     print(f"Roll Center 座標 : X={res['rc_pos'][0]:.4f} m, Y={res['rc_pos'][1]:.4f} m")
     print(f"左輪 Camber      : {res['camber_left_deg']:.3f}°")
     print(f"右輪 Camber      : {res['camber_right_deg']:.3f}°")
+    print(f"左輪 Camber Gain : {res['camber_gain_left_deg_per_mm']:+.6f} °/mm")
+    print(f"右輪 Camber Gain : {res['camber_gain_right_deg_per_mm']:+.6f} °/mm")

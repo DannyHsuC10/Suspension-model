@@ -1,5 +1,6 @@
 import numpy as np
 from . import geometry as ge
+from .car import SuspensionR
 from scipy.optimize import fsolve
 
 # 幾何運算函式 (旋轉、求解、極限計算)
@@ -95,6 +96,7 @@ class SusGeometryHelper:
     """懸吊幾何與運動學數值求解工具箱"""
 
     def __init__(self, car, suspension_f):
+        """接受前軸或後軸懸吊，套用對應的輪距與負載輪胎半徑。"""
         self.car = car
         self.suspension_f = suspension_f
         self.tire_width = car.tire_width
@@ -102,14 +104,19 @@ class SusGeometryHelper:
         self.h_cog = car.h_cog
         self.bottom = car.bottom
 
-        self.t = car.tf
-        self.load_Radius = car.load_Radius[0]
+        is_rear = isinstance(suspension_f, SuspensionR)
+        self.t = car.tr if is_rear else car.tf
+        self.load_Radius = car.load_Radius[1 if is_rear else 0]
         self.scrub_radius = suspension_f.scrub_radius
         self.kpi = suspension_f.kpi
         self.h_rc = suspension_f.h_rc
         self.fvsa = suspension_f.fvsa
         self.body_face_f = car.body_face_f
-        self.sus_contact = suspension_f.sus_contact
+        self.lower_mount_x = float(suspension_f.lower_mount_x)
+        self.upper_mount_x = float(suspension_f.upper_mount_x)
+        mount_x = [self.lower_mount_x, self.upper_mount_x]
+        if not np.isfinite(mount_x).all() or min(mount_x) < 0:
+            raise ValueError("Mount X coordinates must be finite, nonnegative distances [m].")
         self.Au = suspension_f.Au
         self.Al = suspension_f.Al
 
@@ -168,9 +175,16 @@ class SusGeometryHelper:
             [gnd[0] - self.tire_width / 2, gnd[1] + self.free_radius * 2]
         )
 
-        rl, ll_p, lu_p, ru = self.sus_contact
-        cpb_rl = self.line_intersection(rl, ru, lak, ICo)
-        cpb_ru = self.line_intersection(rl, ru, kua, ICo)
+        def mount_at_x(x, upright):
+            # 固定 X，直接由羊角接點到設計瞬心的斜率解 Y。
+            direction = ICo - upright
+            if np.isclose(direction[0], 0.0):
+                raise ValueError("Cannot solve mount Y from a vertical upright-to-IC line.")
+            y = upright[1] + (x - upright[0]) * direction[1] / direction[0]
+            return np.array([x, y])
+
+        cpb_rl = mount_at_x(self.lower_mount_x, lak)
+        cpb_ru = mount_at_x(self.upper_mount_x, kua)
 
         IC = self.line_intersection(cpb_rl, lak, cpb_ru, kua)
 
@@ -399,8 +413,40 @@ class SuspensionDirectSolver:
         self.gnd_y0_l = left_sus.gnd.pos[1]
         self.gnd_y0_r = right_sus.gnd.pos[1]
 
+    def _calc_camber_gain(self, side, theta):
+        """局部 d(camber)/d(travel)，單位 deg/mm，另一側行程固定。
+
+        Camber 仍相對當前左右接地點連線，因此包含單輪運動引起的地面
+        連線角度變化。以 theta +/- 1e-5 rad 中央差分，再除以實際輪側
+        垂直位移差；幾何不可達或行程導數接近零時回傳 NaN。
+        """
+        original_positions = [
+            (point, point.pos.copy()) for point in side.upright_body.points
+        ]
+        samples = []
+        for offset in (-1e-5, 1e-5):
+            try:
+                joints = simulate_side_theta(side, theta + offset)
+                if joints is None:
+                    return float("nan")
+                kua_new, lak_new = joints
+                # 僅暫時更新輪側剛體，IC、RC 與另一側保持指定姿態。
+                side.upright_body.update_from_two_points(lak_new, kua_new)
+                ground_vec = self.right_sus.gnd.pos - self.left_sus.gnd.pos
+                samples.append((side.gnd.y, side.calc_camber_angle(ground_vec)))
+            finally:
+                for point, position in original_positions:
+                    point.move(position)
+
+        delta_travel_mm = (samples[1][0] - samples[0][0]) * 1000.0
+        if abs(delta_travel_mm) < 1e-7:
+            return float("nan")
+        # 避免 atan2 在 +/-180 deg 的角度包絡造成假的巨大斜率。
+        delta_camber_deg = (samples[1][1] - samples[0][1] + 180.0) % 360.0 - 180.0
+        return float(delta_camber_deg / delta_travel_mm)
+
     def solve_by_thetas(self, theta_l, theta_r):
-        """方法 1：已知左右下臂角度 (theta_l, theta_r)，直接計算精確的懸吊姿態與 RC。"""
+        """已知左右下臂角度，計算姿態、RC、camber 與局部 camber gain。"""
         # 1. 更新懸吊運動學
         self.left_sus.update_kinematics(theta_l, self.sus_helper)
         self.right_sus.update_kinematics(theta_r, self.sus_helper)
@@ -422,11 +468,17 @@ class SuspensionDirectSolver:
         # 5. 計算 Roll Center
         rc_pos = self.sus_helper.calc_roll_center(self.left_sus, self.right_sus)
 
+        # 6. 各輪對自身壓縮行程的 camber gain，另一輪行程固定。
+        camber_gain_l = self._calc_camber_gain(self.left_sus, theta_l)
+        camber_gain_r = self._calc_camber_gain(self.right_sus, theta_r)
+
         return {
             "heave_mm": heave * 1000.0,
             "roll_deg": roll_angle_deg,
             "camber_left_deg": camber_l,
             "camber_right_deg": camber_r,
+            "camber_gain_left_deg_per_mm": camber_gain_l,
+            "camber_gain_right_deg_per_mm": camber_gain_r,
             "rc_pos": rc_pos,  # np.array([x, y])
             "travel_left_mm": l_travel * 1000.0,
             "travel_right_mm": r_travel * 1000.0,
@@ -436,7 +488,7 @@ class SuspensionDirectSolver:
 
     def solve_by_travels(self, l_travel_m, r_travel_m):
         """方法 2：已知左右輪懸吊行程 (l_travel_m, r_travel_m，單位: 米)，
-        自動反算對應的 theta 角度，並回傳精確的 Camber 與 Roll Center 位置。
+        自動反算 theta，回傳 Camber、局部 Camber Gain (deg/mm) 與 RC。
 
         :param l_travel_m: 左輪目標行程 (m)，例如 0.015 代表上壓 15mm
         :param r_travel_m: 右輪目標行程 (m)
@@ -478,7 +530,7 @@ class SuspensionDirectSolver:
         return self.solve_by_thetas(solved_thetas[0], solved_thetas[1])
 
     def solve_by_pose(self, target_heave_m, target_roll_deg):
-        """方法 3：已知車身姿態 (Heave, Roll)，使用數值根求解器反推 theta 並傳回精確數據。"""
+        """已知 Heave、Roll，反推 theta 並回傳 Camber、Camber Gain 與 RC。"""
         target_roll_rad = np.radians(target_roll_deg)
 
         def pose_residuals(thetas):

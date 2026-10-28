@@ -1,3 +1,4 @@
+import csv
 import sys
 from pathlib import Path
 
@@ -16,6 +17,7 @@ from suspension_geo.visualization import LinkPlot, PointPlot, PolygonPlot
 from suspension_geo import Geometric_Analysis as ga
 car = Car()
 suspension_f = SuspensionF()
+POINTS_CSV_PATH = Path(__file__).resolve().with_name("sus_fv_v5_points.csv")
 
 
 # ==============================================================================
@@ -134,6 +136,48 @@ def format_signed(value, decimals):
     return f"{value:+.{decimals}f}"
 
 
+def export_points_csv():
+    """匯出目前前視姿態；X 為橫向、Y 為高度，座標單位 mm。"""
+    point_definitions = (
+        ("cpb_rl", "下控制臂車身側接點"),
+        ("cpb_ru", "上控制臂車身側接點"),
+        ("kua", "上控制臂與羊角接點"),
+        ("lak", "下控制臂與羊角接點"),
+        ("kg", "主銷地面參考點"),
+        ("gnd", "輪胎接地點"),
+        ("ICo", "初始瞬心參考點"),
+    )
+    points = []
+    for side in (left_sus, right_sus):
+        for point_id, description in point_definitions:
+            points.append(
+                (side.name, point_id, description, getattr(side, point_id).pos)
+            )
+        # 平行控制臂沒有有限 IC，避免匯出求解器保留的上一個位置。
+        ic_pos = sus_helper.line_intersection(
+            side.cpb_rl, side.lak, side.cpb_ru, side.kua
+        )
+        points.append((side.name, "IC", "瞬時中心", ic_pos))
+        for index, point in enumerate(side.wheel_pts):
+            points.append(
+                (side.name, f"wp{index}", f"輪胎外框點 {index}", point.pos)
+            )
+    points.extend((
+        ("Center", "cg", "重心", cg_pt.pos),
+        ("Center", "rc", "滾動中心", rc_pt.pos),
+    ))
+
+    # UTF-8 BOM 讓 Excel 能直接辨識中文；每次覆寫為當前姿態。
+    with POINTS_CSV_PATH.open("w", newline="", encoding="utf-8-sig") as stream:
+        writer = csv.writer(stream)
+        writer.writerow(("side", "point", "description", "x_mm", "y_mm"))
+        for side, point_id, description, position in points:
+            coordinates = ("", "")
+            if position is not None and np.isfinite(position).all():
+                coordinates = tuple(float(value) * 1000.0 for value in position)
+            writer.writerow((side, point_id, description, *coordinates))
+
+
 def update(val):
     state = solver.solve_by_thetas(slider_l.val, slider_r.val)
     new_rc_pos = state["rc_pos"]
@@ -158,6 +202,11 @@ def update(val):
     update_gnd_axis()
     scene.update()
     fig.canvas.draw_idle()
+    try:
+        export_points_csv()
+    except OSError as exc:
+        # CSV 被其他程式鎖定時仍可操作懸吊圖，並顯示寫入失敗原因。
+        print(f"[CSV] Could not write {POINTS_CSV_PATH}: {exc}", file=sys.stderr)
 
 slider_r.on_changed(update)
 slider_l.on_changed(update)
@@ -172,6 +221,7 @@ ax.set_xlabel("X [m]")
 ax.set_ylabel("Y [m]")
 
 # 開啟視窗時立即顯示初始姿態，不必先移動滑桿。
+print(f"[CSV] Output path: {POINTS_CSV_PATH}")
 update(None)
 
 plt.show()

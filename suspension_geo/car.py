@@ -51,7 +51,7 @@ class SuspensionF:
         # ------------------------------------------------------------------
         # Front-view suspension geometry
         # ------------------------------------------------------------------
-        self.scrub_radius = 18 / 1000  # Scrub radius [m]
+        self.scrub_radius = 25 / 1000  # Scrub radius [m]
         self.kpi = np.deg2rad(10)  # Kingpin inclination [rad]
         self.h_rc = 35 / 1000  # Target roll-center height [m]
         self.fvsa = 1250 / 1000  # Front-view swing-arm length [m]
@@ -59,13 +59,10 @@ class SuspensionF:
         self.Au = 85 / 1000  # Upper upright point offset from wheel center [m]
         self.Al = 90 / 1000  # Lower upright point offset from wheel center [m]
 
-        # Chassis-side hard points: RL, LL, LU, RU, in that order [m]
-        self.sus_contact = [
-            (0.205, 0.08),
-            (-0.205, 0.08),
-            (-0.255, 0.300),
-            (0.255, 0.300),
-        ]
+        # Chassis-side X [m]: right positive, left mirrored negative.
+        # Y is solved from each upright joint and the design instant center.
+        self.lower_mount_x = 205 / 1000
+        self.upper_mount_x = 255 / 1000
         self.front_view_target_travel = 0.025  # Kinematics sweep half-range [m]
         self.front_view_mapping_steps = 30  # Sample count per side in mapping
         self.front_view_figure_size = (8, 6)  # Figure size [inches]
@@ -81,7 +78,7 @@ class SuspensionF:
         # Side-view suspension geometry and anti settings
         # ------------------------------------------------------------------
         self.mechanical_trail_sv = 15 / 1000  # Mechanical trail [m]
-        self.caster_sv_deg = 3.0  # Caster angle [deg]
+        self.caster_sv_deg = 4  # Caster angle [deg]
         self.kingpin_length_sv = 0.6  # Drawn kingpin-axis length [m]
         self.front_brake_bias_sv = 0.7  # Fraction of braking force at front axle
         self.target_anti_dive_sv = 0.15  # Anti-dive fraction (0.5 means 50%)
@@ -109,7 +106,7 @@ class SuspensionF:
         self.caster = self.caster_sv_deg
 
 class SuspensionR:
-    """Rear suspension settings; defaults currently mirror SuspensionF."""
+    """Rear suspension hard points and side/front-view setup parameters."""
 
     def __init__(self):
         # ------------------------------------------------------------------
@@ -123,13 +120,10 @@ class SuspensionR:
         self.Au = 85 / 1000  # Upper upright point offset from wheel center [m]
         self.Al = 90 / 1000  # Lower upright point offset from wheel center [m]
 
-        # Chassis-side hard points: RL, LL, LU, RU, in that order [m].
-        self.sus_contact = [
-            (0.205, 0.08),
-            (-0.205, 0.08),
-            (-0.250, 0.300),
-            (0.250, 0.205),
-        ]
+        # Chassis-side X [m]: right positive, left mirrored negative.
+        # Y is solved from each upright joint and the design instant center.
+        self.lower_mount_x = 205 / 1000
+        self.upper_mount_x = 250 / 1000
         self.front_view_target_travel = 0.025  # Kinematics sweep half-range [m]
         self.front_view_mapping_steps = 30  # Sample count per side in mapping
         self.front_view_figure_size = (8, 6)  # Figure size [inches]

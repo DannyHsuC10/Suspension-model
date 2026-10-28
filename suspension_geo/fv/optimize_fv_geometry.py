@@ -1,14 +1,15 @@
 """Optimize FV geometry on a 1 mm RC-height / 50 mm FVSA lattice.
 
 Run: python -m suspension_geo.fv.optimize_fv_geometry
-SciPy integer differential evolution starts at (35 mm, 1000 mm). By default,
+SciPy integer differential evolution starts at START_HEIGHT_MM / START_FVSA_MM. By default,
 scipy.optimize.brute then verifies every allowed discrete design. Every cost
 evaluation covers the same theta grid as sus_fv_maping.py, including both wheels.
-The RC cost target is fixed at (0, y_best=33 mm), independent of the starting
+The RC cost target is fixed at (0, Y_BEST_MM), independent of the starting
 height and every candidate design's static RC height.
 Radial RC migration, pure RC height error and camber are normalized separately
-against the initial design. RC distance:height importance defaults to 1:5.
-The height target is independent of horizontal migration and radial penalties.
+against the initial design. RC component importance is set by Settings.
+Any RC point outside RC_LIMIT_MM triples the entire normalized RC term,
+including both distance and height. RC normalization excludes this penalty.
 
 Reference: https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.differential_evolution.html
 """
@@ -40,10 +41,10 @@ FVSA_STEP_MM = 50
 GRID_SIZE = (HEIGHT_BOUNDS_MM[1] - HEIGHT_BOUNDS_MM[0] + 1) * (
     (FVSA_BOUNDS_MM[1] - FVSA_BOUNDS_MM[0]) // FVSA_STEP_MM + 1
 )
-START_HEIGHT_MM = 0.0
+START_HEIGHT_MM = 25
 START_FVSA_MM = 1000
 Y_BEST_MM = 30.0  # Fixed RC cost target; never an optimization variable.
-RC_LIMIT_MM = 50.0
+RC_LIMIT_MM = 100.0
 CAMBER_LIMIT_DEG = 2.0
 PENALTY_FACTOR = 3.0
 INVALID_COST = 1e12
@@ -58,7 +59,7 @@ class Settings:
     camber_weight: float = 1.0
     camber_penalty: str = "global"
     rc_distance_weight: float = 1.0
-    rc_height_weight: float = 5.0
+    rc_height_weight: float = 1.0
 
     def __post_init__(self):
         if self.steps < 2:
@@ -87,7 +88,7 @@ class Settings:
 
 @dataclass(frozen=True)
 class CostScales:
-    """Fixed positive divisors, computed once from the initial design."""
+    """Fixed initial-design divisors, excluding the global RC penalty."""
 
     rc_distance_mm2: float
     rc_height_mm2: float
@@ -188,20 +189,20 @@ def build_mapping(height_mm: int, fvsa_mm: int, steps: int) -> dict[str, np.ndar
 
 
 def summarize_raw_cost(mapping, settings: Settings) -> dict:
-    """Penalty-weighted errors in physical squared units, before normalization.
+    """Physical squared errors and penalty diagnostics before normalization.
 
-    RC: mean(k_rc * (x**2 + (y-y_best)**2)), y_best=33 mm.
+    RC: mean(x**2 + (y-Y_BEST_MM)**2), without penalty in the baseline.
+    Any RC exceedance triples the full RC term later in normalize_cost.
     Camber: mean(k_camber * camber**2), over BOTH wheels.
-    RC squared error is tripled outside RC_LIMIT_MM, independently of scale.
     By default, any camber exceedance triples the entire camber term.
     """
     x_error_sq = mapping["rc_x_mm"] ** 2
     y_error_sq = (mapping["rc_y_mm"] - Y_BEST_MM) ** 2
     radius_sq = x_error_sq + y_error_sq
     rc_outside = radius_sq > RC_LIMIT_MM ** 2
-    rc_penalty = np.where(rc_outside, PENALTY_FACTOR, 1.0)
-    rc_x_cost = float(np.mean(rc_penalty * x_error_sq))
-    rc_y_cost = float(np.mean(rc_penalty * y_error_sq))
+    rc_penalty = PENALTY_FACTOR if rc_outside.any() else 1.0
+    rc_x_cost = float(np.mean(x_error_sq))
+    rc_y_cost = float(np.mean(y_error_sq))
     cambers = np.stack((mapping["camber_left_deg"], mapping["camber_right_deg"]))
     camber_outside = np.abs(cambers) > CAMBER_LIMIT_DEG
     if settings.camber_penalty == "global":
@@ -213,9 +214,8 @@ def summarize_raw_cost(mapping, settings: Settings) -> dict:
         "rc_cost_raw_mm2": rc_x_cost + rc_y_cost,
         "rc_x_cost_raw_mm2": rc_x_cost,
         "rc_y_cost_raw_mm2": rc_y_cost,
-        # A separate pure-height target cannot improve merely because an X
-        # migration change makes fewer poses trigger the radial penalty.
         "rc_height_cost_raw_mm2": float(np.mean(y_error_sq)),
+        "rc_penalty_factor": rc_penalty,
         "camber_cost_raw_deg2": camber_cost,
         "rc_rms_distance_mm": float(np.sqrt(np.mean(radius_sq))),
         "rc_max_distance_mm": float(np.sqrt(radius_sq.max())),
@@ -235,18 +235,23 @@ def normalize_cost(metrics, settings: Settings, scales: CostScales) -> dict:
     distance_cost = metrics["rc_cost_raw_mm2"] / scales.rc_distance_mm2
     height_cost = metrics["rc_height_cost_raw_mm2"] / scales.rc_height_mm2
     distance_weight, height_weight = settings.normalized_rc_component_weights
-    rc_cost = distance_weight * distance_cost + height_weight * height_cost
+    rc_cost_unpenalized = distance_weight * distance_cost + height_weight * height_cost
+    # Apply once after normalization so even a violating initial design cannot
+    # absorb the penalty into its scale. Both RC components receive the factor.
+    rc_penalty = metrics["rc_penalty_factor"]
+    rc_cost = rc_penalty * rc_cost_unpenalized
     camber_cost = metrics["camber_cost_raw_deg2"] / scales.camber_deg2
     rc_weight, camber_weight = settings.normalized_weights
     return {
         **metrics,
         "rc_cost": rc_cost,
+        "rc_cost_unpenalized": rc_cost_unpenalized,
         "rc_distance_cost": distance_cost,
         "rc_height_cost": height_cost,
         "camber_cost": camber_cost,
         "rc_contribution": rc_weight * rc_cost,
-        "rc_distance_contribution": rc_weight * distance_weight * distance_cost,
-        "rc_height_contribution": rc_weight * height_weight * height_cost,
+        "rc_distance_contribution": rc_weight * rc_penalty * distance_weight * distance_cost,
+        "rc_height_contribution": rc_weight * rc_penalty * height_weight * height_cost,
         "camber_contribution": camber_weight * camber_cost,
         "total_cost": rc_weight * rc_cost + camber_weight * camber_cost,
     }
@@ -399,7 +404,7 @@ def main():
     parser.add_argument("--rc-weight", type=float, default=1.0, help="RC relative weight after baseline normalization")
     parser.add_argument("--camber-weight", type=float, default=1.0, help="Camber-angle relative weight after baseline normalization")
     parser.add_argument("--rc-distance-weight", type=float, default=1.0, help="Radial migration weight inside the RC term")
-    parser.add_argument("--rc-height-weight", type=float, default=5.0, help="Pure height-target weight inside the RC term (default: 5)")
+    parser.add_argument("--rc-height-weight", type=float, default=Settings.rc_height_weight, help="Pure height-target weight inside the RC term (default: %(default)s)")
     parser.add_argument("--maxiter", type=int, default=60)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--no-grid-check", action="store_true", help=f"Skip the exhaustive {GRID_SIZE}-design verification")
@@ -413,7 +418,7 @@ def main():
         camber_penalty=args.camber_penalty,
         rc_distance_weight=args.rc_distance_weight, rc_height_weight=args.rc_height_weight,
     )
-    print(f"Mapping: {settings.steps} x {settings.steps}; start RC=35 mm / FVSA=1000 mm", flush=True)
+    print(f"Mapping: {settings.steps} x {settings.steps}; start RC={START_HEIGHT_MM:g} mm / FVSA={START_FVSA_MM:g} mm", flush=True)
     print(f"Fixed RC target: (0, {Y_BEST_MM:g}) mm; camber penalty: {settings.camber_penalty}; "
           f"weights RC/camber={settings.rc_weight:g}/{settings.camber_weight:g}", flush=True)
     rc_weight, camber_weight = settings.normalized_weights
@@ -421,6 +426,7 @@ def main():
     print(f"Baseline normalization; effective weights RC/camber={rc_weight:.1%}/{camber_weight:.1%}; "
           f"RC penalty radius={RC_LIMIT_MM:g} mm", flush=True)
     print(f"RC distance/height normalized separately; weights={distance_weight:.1%}/{height_weight:.1%}", flush=True)
+    print(f"RC penalty: any point beyond {RC_LIMIT_MM:g} mm multiplies the entire normalized RC cost by {PENALTY_FACTOR:g}", flush=True)
     started = perf_counter()
     objective, initial, result = optimize(settings, maxiter=args.maxiter, seed=args.seed, verify_grid=not args.no_grid_check)
     elapsed = perf_counter() - started
@@ -440,7 +446,7 @@ def main():
                      "rc_reference_xy_mm": [0.0, Y_BEST_MM],
                      "rc_penalty_radius_mm": RC_LIMIT_MM, "camber_penalty_limit_deg": CAMBER_LIMIT_DEG,
                      "normalization": {
-                         "method": "fixed_initial_design_radial_height_and_camber_cost",
+                         "method": "fixed_initial_design_unpenalized_rc_radial_height_and_camber_cost",
                          "baseline_design": {"height_mm": START_HEIGHT_MM, "fvsa_mm": START_FVSA_MM},
                          "rc_distance_scale_mm2": objective.scales.rc_distance_mm2,
                          "rc_height_scale_mm2": objective.scales.rc_height_mm2,
@@ -449,7 +455,8 @@ def main():
                          "rc_height_zero_baseline_fallback": objective.initial_raw["rc_height_cost_raw_mm2"] <= NORMALIZATION_EPS,
                          "camber_zero_baseline_fallback": objective.initial_raw["camber_cost_raw_deg2"] <= NORMALIZATION_EPS,
                      },
-                     "penalty_factor": PENALTY_FACTOR, "camber_penalty": settings.camber_penalty,
+                     "penalty_factor": PENALTY_FACTOR, "rc_penalty": "global_after_normalization",
+                     "camber_penalty": settings.camber_penalty,
                      "rc_weight": settings.rc_weight, "camber_weight": settings.camber_weight,
                      "effective_rc_weight": rc_weight, "effective_camber_weight": camber_weight,
                      "rc_distance_weight": settings.rc_distance_weight, "rc_height_weight": settings.rc_height_weight,
@@ -473,7 +480,7 @@ def main():
           f"RC height={objective.scales.rc_height_mm2:.8f} mm^2, "
           f"camber={objective.scales.camber_deg2:.8f} deg^2")
     print(f"Total cost: {initial['total_cost']:.8f} -> {best['total_cost']:.8f} ({improvement:.2f}% improvement)")
-    for key in ("rc_cost_raw_mm2", "rc_height_cost_raw_mm2", "camber_cost_raw_deg2", "rc_distance_cost", "rc_height_cost", "rc_cost", "camber_cost", "rc_contribution", "camber_contribution", "rc_height_contribution", "rc_rms_distance_mm", "rc_max_distance_mm", "rc_x_rms_mm", "rc_y_error_rms_mm", "rc_y_mean_mm", "rc_y_min_mm", "rc_y_max_mm", "camber_rms_deg", "camber_max_abs_deg", "rc_penalty_points", "camber_penalty_wheel_points"):
+    for key in ("rc_cost_raw_mm2", "rc_height_cost_raw_mm2", "camber_cost_raw_deg2", "rc_distance_cost", "rc_height_cost", "rc_cost_unpenalized", "rc_penalty_factor", "rc_cost", "camber_cost", "rc_contribution", "camber_contribution", "rc_height_contribution", "rc_rms_distance_mm", "rc_max_distance_mm", "rc_x_rms_mm", "rc_y_error_rms_mm", "rc_y_mean_mm", "rc_y_min_mm", "rc_y_max_mm", "camber_rms_deg", "camber_max_abs_deg", "rc_penalty_points", "camber_penalty_wheel_points"):
         print(f"{key}: {initial[key]:.6f} -> {best[key]:.6f}")
     print(f"Unique designs: {len(objective.cache)}; elapsed: {elapsed:.2f} s")
     print(f"Outputs: {args.output_dir.resolve()}")
