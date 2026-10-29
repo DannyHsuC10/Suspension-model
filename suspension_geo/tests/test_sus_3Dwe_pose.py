@@ -4,13 +4,14 @@ import csv
 import contextlib
 import io
 from pathlib import Path
+import runpy
 import tempfile
 import unittest
 from unittest.mock import patch
 
 import numpy as np
 
-from suspension_geo.car import SuspensionF
+from suspension_geo.car import Car, SuspensionF
 from suspension_geo.we3D.sus_3Dwe_pose import (
     calculate_wheel_pose, create_pose_animation, export_pose_csv, kingpin_axis,
     load_pose_csv, main, sweep_wheel_poses,
@@ -18,9 +19,15 @@ from suspension_geo.we3D.sus_3Dwe_pose import (
 
 
 class WheelPoseTests(unittest.TestCase):
-    def test_zero_steering_is_reference_frame(self):
+    def test_zero_steering_has_initial_offset_and_reference_orientation(self):
         pose = calculate_wheel_pose(0.0)
-        np.testing.assert_array_equal(pose["center_m"], np.zeros(3))
+        self.assertGreater(np.linalg.norm(pose["center_m"]), 0.0)
+        np.testing.assert_array_equal(pose["center_m"], pose["initial_center_m"])
+        self.assertEqual(pose["center_m"][2], Car().free_radius)
+        suspension = SuspensionF()
+        np.testing.assert_allclose(pose["center_m"],
+                                   [suspension.mechanical_trail_sv, -suspension.scrub_radius,
+                                    Car().free_radius], atol=1e-12)
         np.testing.assert_array_equal(pose["rotation_matrix"], np.eye(3))
         np.testing.assert_array_equal(pose["euler_xyz_deg"], np.zeros(3))
 
@@ -40,15 +47,84 @@ class WheelPoseTests(unittest.TestCase):
         axis = kingpin_axis(suspension)
         poses = sweep_wheel_poses(suspension=suspension)
         self.assertEqual(len(poses), 121)
+        center_0 = calculate_wheel_pose(0.0, suspension=suspension)["center_m"]
+        radial_distance = np.linalg.norm(np.cross(center_0, axis))
+        self.assertGreater(radial_distance, 0.0)
         for pose in poses:
             matrix = pose["rotation_matrix"]
-            np.testing.assert_array_equal(pose["center_m"], np.zeros(3))
+            self.assertAlmostEqual(np.linalg.norm(np.cross(pose["center_m"], axis)), radial_distance)
+            self.assertAlmostEqual(np.dot(pose["center_m"], axis), np.dot(center_0, axis))
             np.testing.assert_allclose(matrix.T @ matrix, np.eye(3), atol=1e-12)
             self.assertAlmostEqual(np.linalg.det(matrix), 1.0)
             np.testing.assert_allclose(np.cross(matrix[:, 0], matrix[:, 1]), matrix[:, 2], atol=1e-12)
             np.testing.assert_allclose(matrix @ axis, axis, atol=1e-12)
             inverse = calculate_wheel_pose(-pose["kingpin_rotation_deg"], suspension=suspension)
             np.testing.assert_allclose(inverse["rotation_matrix"], matrix.T, atol=1e-12)
+            np.testing.assert_allclose(matrix.T @ pose["center_m"], center_0, atol=1e-12)
+
+    def test_initial_ground_offsets_match_trail_and_scrub_not_spindle_offsets(self):
+        for kpi, caster, trail, scrub, radius in (
+            (12.0, 5.0, 0.015, 0.025, 0.20574),
+            (-8.0, 9.0, -0.01, -0.02, 0.3),
+            (0.0, 0.0, 0.0, 0.0, 0.2),
+        ):
+            with self.subTest(kpi=kpi, caster=caster):
+                suspension, car = SuspensionF(), Car()
+                suspension.kpi = np.deg2rad(kpi)
+                suspension.caster_sv_deg = caster
+                suspension.mechanical_trail_sv, suspension.scrub_radius = trail, scrub
+                car.free_radius = radius
+                pose = calculate_wheel_pose(0.0, suspension=suspension, car=car)
+                kingpin_ground = np.zeros(3)
+                tire_bottom = pose["center_m"] - [0.0, 0.0, radius]
+                np.testing.assert_allclose(tire_bottom - kingpin_ground, [trail, -scrub, 0.0], atol=1e-12)
+
+    def test_vertical_kingpin_center_matches_planar_offset_rotation(self):
+        suspension = SuspensionF()
+        suspension.kpi = 0.0
+        suspension.caster_sv_deg = 0.0
+        trail, scrub = suspension.mechanical_trail_sv, suspension.scrub_radius
+        for angle in (-30.0, 0.0, 30.0):
+            radians = np.deg2rad(angle)
+            expected = [trail * np.cos(radians) + scrub * np.sin(radians),
+                        trail * np.sin(radians) - scrub * np.cos(radians), Car().free_radius]
+            pose = calculate_wheel_pose(angle, suspension=suspension)
+            np.testing.assert_allclose(pose["center_m"], expected, atol=1e-12)
+        suspension.mechanical_trail_sv = 0.0
+        suspension.scrub_radius = 0.0
+        for pose in sweep_wheel_poses(suspension=suspension):
+            np.testing.assert_array_equal(pose["center_m"], [0.0, 0.0, Car().free_radius])
+
+    def test_ground_origin_is_a_constant_translation_of_previous_height_origin(self):
+        suspension, car = SuspensionF(), Car()
+        axis = kingpin_axis(suspension)
+        radius = car.free_radius
+        previous_ground = -radius * axis / axis[2]
+        previous_center_0 = previous_ground + [
+            suspension.mechanical_trail_sv, -suspension.scrub_radius, radius,
+        ]
+        previous_bottom_0 = previous_center_0 - [0.0, 0.0, radius]
+        for pose in sweep_wheel_poses(suspension=suspension, car=car):
+            matrix = pose["rotation_matrix"]
+            previous_center = matrix @ previous_center_0
+            previous_bottom = matrix @ previous_bottom_0
+            current_bottom = pose["center_m"] + matrix @ [0.0, 0.0, -radius]
+            np.testing.assert_allclose(pose["center_m"], previous_center - previous_ground, atol=1e-12)
+            np.testing.assert_allclose(current_bottom, previous_bottom - previous_ground, atol=1e-12)
+            for force in np.eye(3):
+                self.assertAlmostEqual(np.dot(np.cross(current_bottom, force), axis),
+                                       np.dot(np.cross(previous_bottom, force), axis))
+
+    def test_offset_parameters_move_center_without_changing_orientation(self):
+        suspension = SuspensionF()
+        baseline = calculate_wheel_pose(30.0, suspension=suspension)
+        suspension.mechanical_trail_sv += 0.02
+        suspension.scrub_radius += 0.01
+        changed = calculate_wheel_pose(30.0, suspension=suspension)
+        np.testing.assert_array_equal(baseline["rotation_matrix"], changed["rotation_matrix"])
+        np.testing.assert_array_equal(baseline["euler_xyz_deg"], changed["euler_xyz_deg"])
+        np.testing.assert_allclose(changed["center_m"] - baseline["center_m"],
+                                   baseline["rotation_matrix"] @ [0.02, -0.01, 0.0], atol=1e-12)
 
     def test_fixed_xyz_euler_angles_reconstruct_full_orientation(self):
         for kpi, caster in ((12.0, 5.0), (-16.0, 8.0), (0.0, -10.0), (20.0, 0.0)):
@@ -84,7 +160,7 @@ class WheelPoseTests(unittest.TestCase):
         for row, pose in zip(rows, poses):
             self.assertEqual(float(row["kingpin_rotation_deg"]), pose["kingpin_rotation_deg"])
             for index, axis in enumerate("xyz"):
-                self.assertEqual(float(row[f"center_{axis}_mm"]), 0.0)
+                self.assertAlmostEqual(float(row[f"center_{axis}_mm"]), pose["center_m"][index] * 1000.0)
                 self.assertAlmostEqual(float(row[f"r{axis}_deg"]), pose["euler_xyz_deg"][index])
                 vector = [float(row[f"wheel_{axis}_in_ref_{ref}"]) for ref in "xyz"]
                 np.testing.assert_allclose(vector, pose["rotation_matrix"][:, index], atol=1e-12)
@@ -98,8 +174,18 @@ class WheelPoseTests(unittest.TestCase):
             loaded = load_pose_csv(path)
         self.assertEqual([pose["kingpin_rotation_deg"] for pose in loaded], [-30.0, 30.0])
         for actual, expected in zip(loaded, reversed(poses)):
-            for key in ("center_m", "euler_xyz_deg", "rotation_matrix"):
+            for key in ("center_m", "euler_xyz_deg", "rotation_matrix", "kingpin_axis"):
                 np.testing.assert_allclose(actual[key], expected[key], atol=1e-12)
+
+    def test_legacy_csv_without_saved_kingpin_axis_still_loads(self):
+        pose = calculate_wheel_pose(0.0)
+        del pose["kingpin_axis"]
+        with tempfile.TemporaryDirectory(dir=Path(__file__).resolve().parent) as directory:
+            path = Path(directory) / "legacy.csv"
+            export_pose_csv(path, [pose])
+            loaded = load_pose_csv(path)
+        self.assertNotIn("kingpin_axis", loaded[0])
+        np.testing.assert_allclose(loaded[0]["center_m"], pose["center_m"], atol=1e-12)
 
     def test_csv_reload_reports_missing_columns_and_invalid_frame(self):
         with tempfile.TemporaryDirectory(dir=Path(__file__).resolve().parent) as directory:
@@ -178,11 +264,36 @@ class WheelPoseTests(unittest.TestCase):
         for step in (-1.0, 0.0, 30.01, np.nan, np.inf):
             with self.subTest(step=step), self.assertRaises(ValueError):
                 sweep_wheel_poses(step)
-        for field in ("kpi", "caster_sv_deg"):
+        for field in ("kpi", "caster_sv_deg", "scrub_radius", "mechanical_trail_sv"):
             suspension = SuspensionF()
             setattr(suspension, field, np.nan)
             with self.subTest(field=field), self.assertRaises(ValueError):
                 calculate_wheel_pose(0.0, suspension=suspension)
+
+    def test_v3_and_csv_model_share_offset_center_contact_and_moment_arms(self):
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+
+        with patch.object(plt, "show"):
+            model = runpy.run_module("suspension_geo.we3D.sus_3Dwe_v3", run_name="__main__")
+        try:
+            for index, angle in enumerate(model["steer_range"]):
+                pose = calculate_wheel_pose(angle)
+                center = pose["center_m"]
+                contact = center + pose["rotation_matrix"] @ [0.0, 0.0, -model["tire_radius"]]
+                np.testing.assert_allclose(model["center_path"][index], center, atol=1e-12)
+                np.testing.assert_allclose(model["contact_path"][index], contact, atol=1e-12)
+                for component, force in enumerate(np.eye(3)):
+                    expected = np.dot(np.cross(contact, force), pose["kingpin_axis"])
+                    self.assertAlmostEqual(model["moment_arms"][index, component], expected)
+            for angle in (-30.0, 0.0, 30.0):
+                model["update"](angle)
+                center_artist = model["update"].artists[1]
+                plotted_center = np.array(center_artist._offsets3d).ravel()
+                np.testing.assert_allclose(plotted_center, calculate_wheel_pose(angle)["center_m"], atol=1e-12)
+        finally:
+            plt.close(model["fig"])
 
 
 if __name__ == "__main__":

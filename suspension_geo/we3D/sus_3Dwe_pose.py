@@ -1,10 +1,11 @@
 """Wheel-center frame and XYZ Euler angles for sus_3Dwe_v3 steering.
 
 The input is rotation ABOUT THE KINGPIN, matching the original slider.
-The reference origin is the unsteered wheel center; tire width is along Y.
+The fixed origin is the static kingpin/ground intersection; ground is z=0.
+Trail/scrub offset the initial wheel center before rotation about this axis.
 R maps wheel-local coordinates to reference coordinates. Its columns are
 the wheel's X/Y/Z unit axes, and R = Rz(rz) @ Ry(ry) @ Rx(rx) (fixed XYZ).
-The original model's kingpin passes through the center, so position is zero.
+Tire width is along local Y; position is expressed in the fixed kingpin frame.
 """
 
 import argparse
@@ -18,6 +19,9 @@ if __package__ in (None, ""):
 import numpy as np
 
 from suspension_geo.car import Car, SuspensionF
+from suspension_geo.we3D.wheel_end_geometry import (
+    initial_wheel_center, kingpin_axis, rotation_matrix,
+)
 
 
 STEER_LIMIT_DEG = 30.0
@@ -27,26 +31,16 @@ POSE_CSV_FIELDS = [
     "rx_deg", "ry_deg", "rz_deg",
     *[f"wheel_{local}_in_ref_{ref}" for local in "xyz" for ref in "xyz"],
 ]
+KINGPIN_CSV_FIELDS = [f"kingpin_axis_{axis}" for axis in "xyz"]
 
 
-def kingpin_axis(suspension):
-    """Use exactly the axis formula and signs from sus_3Dwe_v3.py."""
-    kpi = float(suspension.kpi)
-    caster = np.deg2rad(float(suspension.caster_sv_deg))
-    if not np.all(np.isfinite([kpi, caster])):
-        raise ValueError("KPI and caster must be finite.")
-    axis = np.array([
-        np.sin(caster), np.sin(kpi), np.cos(kpi) * np.cos(caster),
-    ])
-    return axis / np.linalg.norm(axis)
-
-
-def calculate_wheel_pose(steer_deg, *, suspension=None):
+def calculate_wheel_pose(steer_deg, *, suspension=None, car=None):
     """Return center [m], rotation matrix and fixed XYZ Euler angles [deg].
 
     Positive input follows the right-hand rule about the original kingpin.
     This is the single wheel-end frame of sus_3Dwe_v3, without left/right
-    mirroring, wheel spin, suspension travel or an offset steering pivot.
+    mirroring, wheel spin or suspension travel. Ground-plane mechanical
+    trail and scrub set the initial center offset; center = R @ center_0.
     Euler angles describe orientation relative to the zero-steer frame;
     they are not three independent rotations about the kingpin.
     """
@@ -54,11 +48,10 @@ def calculate_wheel_pose(steer_deg, *, suspension=None):
     if not np.isfinite(steer_deg) or abs(steer_deg) > STEER_LIMIT_DEG:
         raise ValueError("Kingpin rotation must be finite and within [-30, 30] deg.")
     suspension = SuspensionF() if suspension is None else suspension
+    car = Car() if car is None else car
     axis = kingpin_axis(suspension)
-    ax, ay, az = axis
-    cross = np.array([[0.0, -az, ay], [az, 0.0, -ax], [-ay, ax, 0.0]])
-    angle = np.deg2rad(steer_deg)
-    matrix = np.eye(3) + np.sin(angle) * cross + (1.0 - np.cos(angle)) * (cross @ cross)
+    center_0 = initial_wheel_center(suspension, car.free_radius)
+    matrix = rotation_matrix(axis, np.deg2rad(steer_deg))
 
     # A total rotation <= 30 deg cannot reach the XYZ pitch singularity.
     rx = np.arctan2(matrix[2, 1], matrix[2, 2])
@@ -66,32 +59,37 @@ def calculate_wheel_pose(steer_deg, *, suspension=None):
     rz = np.arctan2(matrix[1, 0], matrix[0, 0])
     return {
         "kingpin_rotation_deg": steer_deg,
-        "center_m": np.zeros(3),
+        "center_m": matrix @ center_0,
+        "initial_center_m": center_0,
+        "kingpin_axis": axis,
         "rotation_matrix": matrix,
         "euler_xyz_deg": np.rad2deg([rx, ry, rz]),
     }
 
 
-def sweep_wheel_poses(step_deg=0.5, *, suspension=None):
+def sweep_wheel_poses(step_deg=0.5, *, suspension=None, car=None):
     """Sample both signs, zero and both limits; spacing is at most step_deg."""
     step_deg = float(step_deg)
     if not np.isfinite(step_deg) or not 0.0 < step_deg <= STEER_LIMIT_DEG:
         raise ValueError("Step must be finite and within (0, 30] deg.")
     suspension = SuspensionF() if suspension is None else suspension
+    car = Car() if car is None else car
     positive = np.append(np.arange(0.0, STEER_LIMIT_DEG, step_deg), STEER_LIMIT_DEG)
     angles = np.concatenate((-positive[:0:-1], positive))
-    return [calculate_wheel_pose(angle, suspension=suspension) for angle in angles]
+    return [calculate_wheel_pose(angle, suspension=suspension, car=car) for angle in angles]
 
 
 def export_pose_csv(path, poses):
     """Export position [mm], Euler angles [deg] and local axes in reference XYZ."""
     with Path(path).open("w", newline="", encoding="utf-8-sig") as stream:
         writer = csv.writer(stream)
-        writer.writerow(POSE_CSV_FIELDS)
+        has_axis = all("kingpin_axis" in pose for pose in poses)
+        writer.writerow(POSE_CSV_FIELDS + (KINGPIN_CSV_FIELDS if has_axis else []))
         for pose in poses:
             writer.writerow([
                 pose["kingpin_rotation_deg"], *(pose["center_m"] * 1000.0),
                 *pose["euler_xyz_deg"], *pose["rotation_matrix"].T.ravel(),
+                *(pose["kingpin_axis"] if has_axis else []),
             ])
 
 
@@ -107,6 +105,9 @@ def load_pose_csv(path):
         missing = set(POSE_CSV_FIELDS) - set(reader.fieldnames or [])
         if missing:
             raise ValueError(f"CSV is missing columns: {', '.join(sorted(missing))}")
+        axis_columns = set(KINGPIN_CSV_FIELDS) & set(reader.fieldnames or [])
+        if axis_columns and axis_columns != set(KINGPIN_CSV_FIELDS):
+            raise ValueError("CSV must include all three kingpin-axis columns or none.")
         for line_number, row in enumerate(reader, start=2):
             try:
                 values = np.array([float(row[field]) for field in POSE_CSV_FIELDS])
@@ -126,6 +127,18 @@ def load_pose_csv(path):
                 "euler_xyz_deg": values[4:7],
                 "rotation_matrix": matrix,
             })
+            if axis_columns:
+                try:
+                    axis = np.array([float(row[field]) for field in KINGPIN_CSV_FIELDS])
+                except (TypeError, ValueError) as error:
+                    raise ValueError(f"CSV row {line_number}: invalid kingpin axis.") from error
+                if (not np.all(np.isfinite(axis))
+                        or not np.isclose(np.linalg.norm(axis), 1.0, atol=1e-6, rtol=0.0)):
+                    raise ValueError(f"CSV row {line_number}: kingpin axis must be a unit vector.")
+                if poses[0].get("kingpin_axis") is not None and not np.allclose(
+                        poses[0]["kingpin_axis"], axis, atol=1e-6, rtol=0.0):
+                    raise ValueError("CSV kingpin axis must be fixed throughout the sweep.")
+                poses[-1]["kingpin_axis"] = axis
     if not poses:
         raise ValueError("CSV contains no wheel poses.")
     return sorted(poses, key=lambda pose: pose["kingpin_rotation_deg"])
@@ -151,7 +164,7 @@ def create_pose_figure(poses, *, suspension=None, car=None, initial_angle=0.0,
         initial_pose = poses[0]
     else:
         suspension = SuspensionF() if suspension is None else suspension
-        initial_pose = calculate_wheel_pose(initial_angle, suspension=suspension)
+        initial_pose = calculate_wheel_pose(initial_angle, suspension=suspension, car=car)
     initial_angle = initial_pose["kingpin_rotation_deg"]
     angles = np.array([pose["kingpin_rotation_deg"] for pose in poses])
     euler = np.array([pose["euler_xyz_deg"] for pose in poses])
@@ -170,7 +183,9 @@ def create_pose_figure(poses, *, suspension=None, car=None, initial_angle=0.0,
         fig.suptitle(
             "sus_3Dwe_v3: Wheel-center coordinate frame\n"
             f"KPI = {np.rad2deg(suspension.kpi):.2f} deg, "
-            f"caster = {suspension.caster_sv_deg:.2f} deg",
+            f"caster = {suspension.caster_sv_deg:.2f} deg; "
+            f"trail = {suspension.mechanical_trail_sv * 1000:.1f} mm, "
+            f"scrub = {suspension.scrub_radius * 1000:.1f} mm",
         )
 
     for index, name in enumerate("XYZ"):
@@ -180,19 +195,29 @@ def create_pose_figure(poses, *, suspension=None, car=None, initial_angle=0.0,
         ax_angles.plot(angles, euler[:, index], color=colors[index], label=f"R{name.lower()}")
         ax_position.plot(angles, centers[:, index], color=colors[index],
                          linestyle=("-", "--", ":")[index], label=name)
-    if not animate:
-        axis_line = np.outer([-length, length], kingpin_axis(suspension))
+    axis = initial_pose.get("kingpin_axis")
+    if axis is not None:
+        axis_line = np.outer([0.0, 2.0 * length], axis)
         ax_frame.plot(*axis_line.T, color="black", linewidth=1.5)
+    ax_frame.plot(*(centers / 1000.0).T, color="tab:purple", linestyle=":", linewidth=1.5)
     ax_frame.scatter(0.0, 0.0, 0.0, color="black", s=30)
-    limit = length * 1.4 + np.max(np.abs(centers)) / 1000.0
-    ax_frame.set(xlim=(-limit, limit), ylim=(-limit, limit), zlim=(-limit, limit),
+    ax_frame.text(0.0, 0.0, 0.0, " O", color="black")
+    limit = length * 1.4 + np.max(np.abs(centers[:, :2])) / 1000.0
+    tire_extent = radius + width / 2.0
+    z_min = min(-0.1 * radius, np.min(centers[:, 2]) / 1000.0 - tire_extent)
+    z_max = max(2.0 * length, np.max(centers[:, 2]) / 1000.0 + tire_extent)
+    ax_frame.plot([-limit, limit, limit, -limit, -limit],
+                  [-limit, -limit, limit, limit, -limit], np.zeros(5),
+                  color="gray", alpha=0.45, linewidth=0.8)
+    ax_frame.set(xlim=(-limit, limit), ylim=(-limit, limit), zlim=(z_min, z_max),
                  xlabel="X [m]", ylabel="Y [m]", zlabel="Z [m]",
-                 title="Wheel center O / moving axes xw, yw, zw")
-    ax_frame.set_box_aspect((1, 1, 1))
+                 title="Kingpin-ground origin O / axes at wheel center")
+    ax_frame.set_box_aspect((2.0 * limit, 2.0 * limit, z_max - z_min))
     ax_frame.view_init(elev=23, azim=-55)
     fig.legend(handles=[
         Line2D([], [], color="gray", linestyle="--", label="Reference frame"),
-        *([] if animate else [Line2D([], [], color="black", label="Kingpin through O")]),
+        *([] if axis is None else [Line2D([], [], color="black", label="Kingpin through O")]),
+        Line2D([], [], color="tab:purple", linestyle=":", label="Wheel-center path"),
         *[Line2D([], [], color=color, label=f"Wheel {name}")
           for name, color in zip("xyz", colors)],
     ], loc="lower left", bbox_to_anchor=(0.055, 0.14), ncol=3, fontsize="small")
@@ -200,8 +225,7 @@ def create_pose_figure(poses, *, suspension=None, car=None, initial_angle=0.0,
 
     ax_angles.set(title="Fixed XYZ Euler angles: R = Rz @ Ry @ Rx", ylabel="Rotation [deg]")
     position_limit = max(1.0, np.max(np.abs(centers)) * 1.1)
-    ax_position.set(title="Wheel-center position" if animate else
-                    "Wheel-center position (kingpin passes through center)",
+    ax_position.set(title="Wheel center relative to kingpin-ground origin",
                     ylabel="Position [mm]", ylim=(-position_limit, position_limit))
     markers = []
     for axes in (ax_angles, ax_position):
@@ -272,7 +296,7 @@ def create_pose_figure(poses, *, suspension=None, car=None, initial_angle=0.0,
         fig.animation_button = button
     else:
         def update(steer_deg):
-            draw_pose(calculate_wheel_pose(steer_deg, suspension=suspension))
+            draw_pose(calculate_wheel_pose(steer_deg, suspension=suspension, car=car))
             fig.canvas.draw_idle()
 
         slider = Slider(fig.add_axes((0.22, 0.09, 0.57, 0.035)), "Kingpin [deg]",
@@ -280,7 +304,7 @@ def create_pose_figure(poses, *, suspension=None, car=None, initial_angle=0.0,
         slider.on_changed(update)
         fig.steering_slider = slider
     fig.text(0.5, 0.025,
-             "Origin: zero-steer wheel center. Tire axle: local +Y. "
+             "Origin: static kingpin/ground intersection (Z = 0). Tire axle: local +Y. "
              + ("Animation: saved CSV poses, -30 to +30 deg, repeating." if animate else
                 "Input: rotation about kingpin. All angles use the right-hand rule."),
              ha="center", fontsize=9)
@@ -301,11 +325,12 @@ def main(argv=None):
                         help="Save CSV/PNG without prompting or opening a window.")
     args = parser.parse_args(argv)
     suspension = SuspensionF()
+    car = Car()
     if not np.isfinite(args.interval) or args.interval <= 0.0:
         parser.error("Animation interval must be finite and positive.")
     try:
-        selected = calculate_wheel_pose(args.angle, suspension=suspension)
-        poses = sweep_wheel_poses(args.step, suspension=suspension)
+        selected = calculate_wheel_pose(args.angle, suspension=suspension, car=car)
+        poses = sweep_wheel_poses(args.step, suspension=suspension, car=car)
     except ValueError as error:
         parser.error(str(error))
 
@@ -318,17 +343,20 @@ def main(argv=None):
     csv_path = args.output_dir / "wheel_center_pose.csv"
     png_path = args.output_dir / "wheel_center_pose.png"
     export_pose_csv(csv_path, poses)
-    figure = create_pose_figure(poses, suspension=suspension, initial_angle=args.angle)
+    figure = create_pose_figure(poses, suspension=suspension, car=car, initial_angle=args.angle)
     figure.savefig(png_path, dpi=160)
     plt.close(figure)
 
     print("Input = kingpin rotation, matching sus_3Dwe_v3; not ground-plane wheel heading.")
-    print("Reference origin = zero-steer wheel center; the kingpin passes through it.")
-    print("Center [mm] = (0, 0, 0) throughout; fixed XYZ Euler: R = Rz @ Ry @ Rx.\n")
+    print("Fixed origin = static kingpin/ground intersection (z=0); center = R @ initial_center.")
+    print(f"Trail = {suspension.mechanical_trail_sv * 1000:.3f} mm (+X); "
+          f"scrub = {suspension.scrub_radius * 1000:.3f} mm (-Y), measured at z=0.")
+    print("Initial center [mm]:", np.round(selected["initial_center_m"] * 1000.0, 6))
+    print("Fixed XYZ Euler: R = Rz @ Ry @ Rx.\n")
     print(f"{'Kingpin [deg]':>14} {'X [mm]':>10} {'Y [mm]':>10} {'Z [mm]':>10}"
           f" {'Rx [deg]':>11} {'Ry [deg]':>11} {'Rz [deg]':>11}")
     for angle in sorted({-30.0, -15.0, 0.0, 15.0, 30.0, args.angle}):
-        pose = calculate_wheel_pose(angle, suspension=suspension)
+        pose = calculate_wheel_pose(angle, suspension=suspension, car=car)
         values = [angle, *(pose["center_m"] * 1000.0), *pose["euler_xyz_deg"]]
         print(f"{values[0]:14.3f}" + "".join(f"{value:11.4f}" for value in values[1:]))
     print(f"\nWheel axes at {args.angle:+.3f} deg (columns = wheel x/y/z in reference XYZ):")
