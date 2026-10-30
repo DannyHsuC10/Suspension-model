@@ -80,7 +80,8 @@ class SusGeometryHelper:
         cg = np.array([0.0, self.h_cog])
         RC = np.array([0.0, self.h_RC])
 
-        wheel_center = gnd + np.array([0.0, self.free_radius])
+        # 輪心以負載半徑定位；外形仍使用自由半徑，因此胎底會低於地面。
+        wheel_center = gnd + np.array([0.0, self.load_Radius])
 
         def mount_at_x(x, upright):
             # 固定 X，直接由羊角接點到設計瞬心的斜率解 Y。

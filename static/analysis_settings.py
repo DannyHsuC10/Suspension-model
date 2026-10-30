@@ -12,6 +12,7 @@ class AnalysisSettings:
         self.front_view_x_limits = (-1.5, 1.5)  # FV transverse bounds [m]
         self.front_view_y_limits = (-0.1, 0.65)  # FV height bounds [m]
         self.chassis_face_alpha = 0.16  # Chassis hexahedron face opacity [0..1]
+        self.arm_plane_alpha = 0.10  # A-arm reference triangle opacity [0..1]
 
         # Side-view reference coordinates and drawn construction lines.
         self.contact_point_sv = (0.0, 0.0)  # Local contact reference [m]

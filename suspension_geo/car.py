@@ -50,7 +50,7 @@ class SuspensionF:
         self.scrub_radius = 25 / 1000  # Scrub radius [m]
         self.kpi = np.deg2rad(12)  # Kingpin inclination [rad]
         self.h_rc = 35 / 1000  # Target roll-center height [m]
-        self.fvsa = 750 / 1000  # Front-view swing-arm length [m]
+        self.fvsa = 1000 / 1000  # Front-view swing-arm length [m]
 
         self.Au = 85 / 1000  # Upper upright point offset from wheel center [m]
         self.Al = 90 / 1000  # Lower upright point offset from wheel center [m]

@@ -20,6 +20,7 @@ car = Car()
 suspension_f = SuspensionF()
 analysis_settings = AnalysisSettings()
 POINTS_CSV_PATH = Path(__file__).resolve().with_name("sus_fv_v5_points.csv")
+RIM_DIAMETER = (25.4 * 9.625 - 20 * 2) / 1000.0  # 204.475 mm, converted to m
 
 
 # ==============================================================================
@@ -42,6 +43,23 @@ class Scene:
     def update(self):
         for obj in self.objects:
             obj.update()
+
+
+def rim_outline(side):
+    """輪框以負載輪心置中，框寬沿用胎寬，並跟隨輪胎姿態。"""
+    tire = np.array([point.pos for point in side.wheel_pts])
+    half_width = (tire[1] - tire[0]) / 2.0
+    up = tire[3] - tire[0]
+    up = up / np.linalg.norm(up)
+    # 與水平輪心虛線使用相同的負載半徑，再隨當前輪胎姿態旋轉／平移。
+    center = side.gnd.pos + up * sus_helper.load_Radius
+    half_height = up * RIM_DIAMETER / 2.0
+    return center + np.array([
+        -half_width - half_height,
+        half_width - half_height,
+        half_width + half_height,
+        -half_width + half_height,
+    ])
 
 # ==============================================================================
 # 4. 主程式流程 (Main Execution)
@@ -72,6 +90,16 @@ ax.add_patch(body_patch)
 scene = Scene(ax)
 right_sus.add_to_scene(scene)
 left_sus.add_to_scene(scene)
+
+# 輪框只畫框線；前視投影的高度為指定輪框直徑。
+rim_patches = {}
+for side in (left_sus, right_sus):
+    rim_patch = patches.Polygon(
+        rim_outline(side), closed=True, fill=False,
+        edgecolor="darkorange", linewidth=2, zorder=3,
+    )
+    ax.add_patch(rim_patch)
+    rim_patches[side] = rim_patch
 
 # Connect the two tire contact points and continue their line beyond both ends.
 gnd_axis_start = ge.Point(right_sus.gnd.pos, "Ground axis start")
@@ -205,6 +233,8 @@ def update(val):
     )
     update_gnd_axis()
     scene.update()
+    for side, rim_patch in rim_patches.items():
+        rim_patch.set_xy(rim_outline(side))
     fig.canvas.draw_idle()
     try:
         export_points_csv()
