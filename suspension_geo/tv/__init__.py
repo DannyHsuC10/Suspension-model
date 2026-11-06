@@ -1,1 +1,0 @@
-"""Top-view steering geometry."""
