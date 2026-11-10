@@ -10,7 +10,7 @@ const caseFields = {
   random: ["height", "seed", "random_interval"], cornering: ["ay", "ramp"], accelerate: ["ax", "ramp"],
   bump_cornering: ["height", "period", "ay", "ramp"], combined: ["height", "period", "ax", "ay", "ramp", "speed"],
 };
-const tableHeads = ["訊號", "單位", "穩態平衡點", "2% 安定時間 (s)", "超越量 (%)", "最小", "最大", "RMS", "絕對峰值"];
+const tableHeads = ["Signal", "Unit", "Steady state", "2% settling time (s)", "Overshoot (%)", "Min", "Max", "RMS", "Absolute peak"];
 const numberInputs = new Map();
 const families = new Map();
 let schema, project, family = "quarter", busy = false, running = false;
@@ -46,7 +46,7 @@ function rpc(action, payload = {}, { data, onProgress } = {}) {
     };
     worker.onerror = event => {
       event.preventDefault();
-      stopWorker(new Error(event.message || "求解器無法啟動。"));
+      stopWorker(new Error(event.message || "The solver could not start."));
     };
   }
   const id = ++requestId;
@@ -97,8 +97,8 @@ function numberField(label, unit, value, readOnly = false) {
 }
 
 function viewChoices() {
-  if (family === "full") return { dashboard: "全車儀表板", iso: "立體", side: "側視", front: "前視" };
-  return family === "LR" ? { front: "前視" } : { side: "側視" };
+  if (family === "full") return { dashboard: "Full-car dashboard", iso: "Isometric view", side: "Side view", front: "Front view" };
+  return family === "LR" ? { front: "Front view" } : { side: "Side view" };
 }
 
 function selectedFamily() { return families.get(family); }
@@ -159,11 +159,11 @@ function installProject(candidate) {
 }
 
 function record(value) {
-  const { family: resultFamily, info, model, project: snapshot } = value.meta;
+  const { family: resultFamily, model, project: snapshot } = value.meta;
   const target = families.get(resultFamily);
   const scenario = schema.scenarios[snapshot.analysis[resultFamily].scenario];
   value.id = String(target.next++);
-  value.label = `${value.id.padStart(2, "0")} · ${info.model_label ?? model} · ${scenario}`;
+  value.label = `${value.id.padStart(2, "0")} · ${schema.models[resultFamily][model]} · ${scenario}`;
   target.records.push(value);
   if (target.records.length > 20) target.records.shift();
   target.selected = value;
@@ -186,17 +186,49 @@ function buildTable(rows) {
   return table;
 }
 
+function resultInfo(value) {
+  const { family: resultFamily, model, info } = value.meta;
+  return {
+    ...info,
+    model_label: schema.models[resultFamily][model],
+    warnings: (info.warnings ?? []).map(warning => schema.warning_labels[warning] ?? warning),
+  };
+}
+
+function reportHtml(value, markup) {
+  const { project: snapshot, statistics } = value.meta;
+  const info = resultInfo(value);
+  const report = el("main");
+  report.append(el("h1", "Suspension Analysis Report"), el("p", `${snapshot.name} · ${info.model_label} · ${info.engine}`),
+    el("p", `${value.time.length.toLocaleString("en")} samples · ${value.time[0]}–${value.time.at(-1)} s`));
+  if (info.warnings.length) {
+    const warnings = el("ul");
+    warnings.append(...info.warnings.map(warning => el("li", warning)));
+    report.append(warnings);
+  }
+  const chart = el("figure");
+  chart.innerHTML = markup; // The plot serializes its own SVG with escaped labels.
+  report.append(chart, el("h2", "Signal statistics"), el("p", schema.response_note), buildTable(statistics),
+    el("h2", "Calculation details"), el("pre", JSON.stringify(info, null, 2)),
+    el("h2", "Input snapshot"), el("pre", JSON.stringify(snapshot, null, 2)));
+  return `<!doctype html><html lang="en"><meta charset="utf-8"><title>Suspension Analysis Report</title>
+<style>body{font:15px system-ui,sans-serif;margin:36px;color:#172334}table{border-collapse:collapse;width:100%}
+td,th{border:1px solid #ccd4df;padding:6px;text-align:left}pre{white-space:pre-wrap;background:#f1f5f9;padding:16px}
+figure{margin:1em 0}svg{max-width:100%;height:auto}@media print{body{margin:12px}}</style>${report.outerHTML}</html>`;
+}
+
 function showResult(value) {
   pause();
   result = value;
   selectedFamily().selected = value;
   options($("history"), Object.fromEntries(selectedFamily().records.map(item => [item.id, item.label])), value?.id);
   const groups = Object.keys(value?.meta.groups ?? {});
-  options($("group"), Object.fromEntries(groups.map(name => [name, name])), selectedFamily().group);
+  options($("group"), Object.fromEntries(groups.map(name => [name, schema.group_labels[name] ?? name])), selectedFamily().group);
+  const info = value ? resultInfo(value) : null;
   $("result-note").textContent = value
-    ? `${value.label} · ${value.time.length.toLocaleString()} 筆取樣${(value.meta.info.warnings ?? []).map(warning => ` · ${warning}`).join("")}`
-    : "計算後可播放模型、檢視曲線並匯出結果。";
-  $("snapshot").textContent = value ? JSON.stringify({ info: value.meta.info, project: value.meta.project }, null, 2) : "";
+    ? [value.label, `${value.time.length.toLocaleString("en")} samples`, ...info.warnings].join(" · ")
+    : "Run a model to play the animation, view plots and export results.";
+  $("snapshot").textContent = value ? JSON.stringify({ info, project: value.meta.project }, null, 2) : "";
   $("stats").replaceChildren(...(value ? [buildTable(value.meta.statistics)] : []));
   $("time").max = value ? value.time.length - 1 : 0;
   setControls();
@@ -248,7 +280,7 @@ function drawChart() {
   }));
   const units = new Set(names.filter(name => target.signals.has(name)).map(name => result.meta.units[name]));
   plot.set(series, [...units].join(" / "));
-  const note = plotted.length > 1 ? `疊圖 · ${plotted.map(item => item.meta.model).join(" / ")} · ${series.length} 條曲線` : "";
+  const note = plotted.length > 1 ? `Overlay · ${plotted.map(item => item.meta.model).join(" / ")} · ${series.length} curves` : "";
   $("signals").querySelector(".comparison-note")?.remove();
   if (note) $("signals").append(el("span", note, "comparison-note"));
 }
@@ -264,7 +296,7 @@ function setupDashboard() {
   const channels = ["heave_f", "heave_r", "roll_f", "roll_r", "roll_c", "warp", ...corners.map(corner => `corner_${corner}`)];
   const loads = corners.map(corner => [corner, `Normal load ${corner}`]);
   const forces = channels.map(name => [name, `Channel ${name}`]);
-  for (const [title, definitions] of [["四輪法向輪荷 (N)", loads], ["模態與直推力 (N)", forces]]) {
+  for (const [title, definitions] of [["Normal wheel loads (N)", loads], ["Modal and direct forces (N)", forces]]) {
     const section = el("section");
     const list = el("div", null, "meters");
     let maximum = 1;
@@ -293,7 +325,7 @@ function drawFrame() {
   const dashboard = Boolean(result && view === "dashboard");
   $("dashboard").hidden = !dashboard;
   $("motion").toggleAttribute("hidden", dashboard);
-  $("motion-title").textContent = dashboard ? "全車動態儀表板" : "模型動畫";
+  $("motion-title").textContent = dashboard ? "Full-car dashboard" : "Model animation";
   if (!dashboard) {
     drawMotion($("motion"), result, index, view, Number($("gain").value));
     return;
@@ -306,7 +338,7 @@ function drawFrame() {
     bar.toggleAttribute("data-negative", sample < 0);
     value.textContent = sample.toFixed(1);
   }
-  const angles = { Roll: "側傾", Pitch: "俯仰", Twist: "扭轉", "Roll front": "前側傾", "Roll rear": "後側傾" };
+  const angles = { Roll: "Roll", Pitch: "Pitch", Twist: "Twist", "Roll front": "Front roll", "Roll rear": "Rear roll" };
   readout.textContent = Object.entries(angles).filter(([name]) => result.signals[name])
     .map(([name, label]) => `${label} ${result.signals[name][index].toFixed(3)}°`).join(" · ");
 }
@@ -323,7 +355,7 @@ function seek(value) {
 function pause() {
   if (animation !== undefined) cancelAnimationFrame(animation);
   animation = undefined;
-  $("play").textContent = "播放";
+  $("play").textContent = "Play";
 }
 
 function tick(now) {
@@ -349,15 +381,15 @@ async function run(all = false) {
   try {
     for (const model of models) {
       opt.model = model;
-      status(`正在計算 ${schema.models[kind][model]}（${completed + 1} / ${models.length}）…`);
+      status(`Running ${schema.models[kind][model]} (${completed + 1} of ${models.length})…`);
       record(await rpc("run", { project: snapshot, family: kind }, {
         onProgress: fraction => { $("progress").value = (completed + fraction) / models.length; },
       }));
       completed++;
     }
-    status(`已完成 ${completed} 個模型。`);
+    status(`Completed ${completed} ${completed === 1 ? "model" : "models"}.`);
   } catch (error) {
-    if (error.name === "AbortError") status(`已停止計算。已完成的 ${completed} 筆結果保留。`);
+    if (error.name === "AbortError") status(`Calculation stopped. Results saved in this session: ${completed}.`);
     else status(error.message, true);
   } finally {
     busy = running = false;
@@ -403,7 +435,7 @@ function renderParameters(effective) {
       await previewParameters();
     });
     const label = el("label", null, "check");
-    label.append(automatic, "依阻尼比 ζ 自動估算阻尼係數");
+    label.append(automatic, "Estimate damping from ratio ζ");
     nodes.push(label);
   }
   const grid = el("div", null, "numeric-grid");
@@ -477,14 +509,14 @@ async function svgPng(markup) {
     canvas.getContext("2d").drawImage(image, 0, 0);
     return await new Promise((resolve, reject) => canvas.toBlob(blob => {
       if (blob) resolve(blob);
-      else reject(new Error("無法產生 PNG。"));
+      else reject(new Error("Could not create a PNG."));
     }));
   } finally { URL.revokeObjectURL(url); }
 }
 
 $("analysis").addEventListener("submit", event => { event.preventDefault(); run(); });
 $("run-all").addEventListener("click", () => run(true));
-$("stop").addEventListener("click", () => stopWorker(new DOMException("停止計算", "AbortError")));
+$("stop").addEventListener("click", () => stopWorker(new DOMException("Calculation stopped.", "AbortError")));
 document.addEventListener("keydown", event => {
   if (event.key === "F5" && !busy && project && !document.querySelector("dialog[open]")) {
     event.preventDefault();
@@ -520,7 +552,7 @@ $("play").addEventListener("click", () => {
   if (index === result.time.length - 1) seek(0);
   playTime = result.time[index];
   lastTick = performance.now();
-  $("play").textContent = "暫停";
+  $("play").textContent = "Pause";
   animation = requestAnimationFrame(tick);
 });
 
@@ -543,7 +575,7 @@ $("parameter-form").addEventListener("submit", async event => {
     project = updated;
     $("parameter-dialog").close();
     renderAnalysis();
-    status("已套用設定。重新計算可更新結果。");
+    status("Settings applied. Run the model again to update the results.");
   } catch (error) { $("parameter-error").textContent = error.message; }
   finally { $("apply-settings").disabled = false; }
 });
@@ -551,12 +583,12 @@ $("restore").addEventListener("click", () => whileBusy(async () => {
   const kind = family;
   project = await rpc("restore", { project, family: kind, snapshot: result.meta.project });
   renderAnalysis();
-  status("已套用分析輸入與本類專用設定。");
+  status("Inputs and model-specific settings applied.");
 }));
 $("save-project").addEventListener("click", () => whileBusy(async () => {
   const value = await rpc("save-project", { project });
   download(new Blob([value], { type: "application/json" }), `${project.name}.json`);
-  status("已匯出專案 JSON。");
+  status("Project JSON exported.");
 }));
 
 $("import-project").addEventListener("click", () => $("project-file").click());
@@ -568,7 +600,7 @@ $("project-file").addEventListener("change", () => whileBusy(async () => {
   const data = new Uint8Array(await file.arrayBuffer());
   const value = await rpc("import-project", {}, { data });
   if (value.missing) repairDialog(data, value.missing);
-  else { installProject(value.project); status(`已匯入 ${file.name}。`); }
+  else { installProject(value.project); status(`Imported ${file.name}.`); }
 }));
 $("close-repair").addEventListener("click", () => $("repair-dialog").close());
 $("repair-form").addEventListener("submit", async event => {
@@ -578,7 +610,7 @@ $("repair-form").addEventListener("submit", async event => {
     const { project } = await rpc("import-project", { repairs: repairInputs.map(input => input.value) }, { data: repairBytes });
     $("repair-dialog").close();
     installProject(project);
-    status("已補齊缺失欄位並匯入專案。");
+    status("Missing parameters filled and project imported.");
   } catch (error) { $("repair-error").textContent = error.message; }
   finally { $("apply-repair").disabled = false; }
 });
@@ -589,20 +621,21 @@ $("export").addEventListener("click", () => whileBusy(async () => {
   let blob;
   if (format === "svg") blob = new Blob([markup], { type: "image/svg+xml;charset=utf-8" });
   else if (format === "png") blob = await svgPng(markup);
+  else if (format === "html") blob = new Blob([reportHtml(current, markup)], { type: "text/html;charset=utf-8" });
   else {
-    const value = await rpc("export-result", { format, meta: current.meta, svg: markup }, {
+    const value = await rpc("export-result", { format, meta: current.meta }, {
       data: { time: current.time, signals: current.signals },
     });
-    const mime = { csv: "text/csv", html: "text/html", npz: "application/octet-stream" };
+    const mime = { csv: "text/csv", npz: "application/octet-stream" };
     blob = new Blob([value], { type: mime[format] });
   }
   download(blob, `${current.meta.family}_${current.meta.model}.${format}`);
-  status(`已匯出 ${format.toUpperCase()}。`);
+  status(`${format.toUpperCase()} exported.`);
 }));
 
 async function start() {
   $("retry").hidden = true;
-  status("正在載入 Python 求解器與 NumPy…");
+  status("Loading the Python solver and NumPy…");
   drawMotion($("motion"), null, 0, "side", 1);
   try {
     schema = await rpc("bootstrap");
@@ -614,12 +647,12 @@ async function start() {
       $("numbers").append(field);
     }
     installProject(schema.project);
-    status("求解器已就緒。選擇模型與輸入後，按「計算此模型」。");
+    status("Solver ready. Choose a model and input, then select Run model.");
   } catch (error) {
-    status(`載入失敗：${error.message}`, true);
+    status(`Could not load the solver. ${error.message}`, true);
     $("retry").hidden = false;
   }
 }
 
-$("retry").addEventListener("click", () => { stopWorker(new Error("重新載入")); start(); });
+$("retry").addEventListener("click", () => { stopWorker(new Error("Reloading the solver.")); start(); });
 start();

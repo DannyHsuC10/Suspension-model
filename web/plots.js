@@ -126,7 +126,7 @@ export class ResponsePlot {
         const y = top + height * i / 5;
         svg(root, "line", { x1: left, x2: left + width, y1: y, y2: y, stroke: gridColor });
       }
-      caption(root, 348, 153, "計算後選擇要顯示的訊號");
+      caption(root, 348, 153, "Run a model, then select signals to plot");
       return;
     }
     const [start, end] = this.view;
@@ -157,7 +157,7 @@ export class ResponsePlot {
       caption(root, left - 8, y(v) + 4, formatTick(v), "end");
     }
     caption(root, left, 18, this.unit, "start");
-    caption(root, left + width / 2, 304, "時間 (s)");
+    caption(root, left + width / 2, 304, "Time (s)");
     const clip = svg(svg(root, "defs"), "clipPath", { id: "response-clip" });
     svg(clip, "rect", { x: left, y: top, width, height });
     const layer = svg(root, "g", { "clip-path": "url(#response-clip)" });
@@ -217,7 +217,7 @@ export function drawMotion(root, result, index, view, gain) {
   root.setAttribute("font-family", "system-ui, sans-serif");
   svg(root, "rect", { width: 500, height: 300, fill: background });
   if (!result) {
-    caption(root, 250, 151, "計算後即可播放模型動畫");
+    caption(root, 250, 151, "Run a model to play the animation");
     return;
   }
   const family = result.meta.family;
@@ -299,6 +299,6 @@ export function drawMotion(root, result, index, view, gain) {
   const outline = family === "quarter" ? [[body[0][0] - 50, body[0][1]], [body[0][0] + 50, body[0][1]]]
     : family === "full" ? [0, 1, 3, 2, 0].map(i => body[i]) : body;
   polyline(root, outline, "#62dec8", 5, { "stroke-linecap": "round" });
-  caption(root, 15, 24, "幾何比例 1:1", "start");
-  caption(root, 250, 284, "綠：車身　彩：懸吊　灰：輪胎　橘：路面");
+  caption(root, 15, 24, "Geometry scale 1:1", "start");
+  caption(root, 250, 284, "Green: body · Colours: suspension · Grey: tyres · Orange: road");
 }

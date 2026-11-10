@@ -16,6 +16,7 @@ def build(destination):
                      "project.py", "project_import.py", "road_profiles.py", "storage.py"):
             archive.write(package / name, f"suspension_dynamics/{name}")
         archive.write(web / "bridge.py", "web_bridge.py")
+        archive.write(web / "english.py", "web/english.py")
 
 
 if __name__ == "__main__":

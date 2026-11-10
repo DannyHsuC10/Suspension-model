@@ -4,7 +4,7 @@ async function loadEngine() {
   const { loadPyodide } = await import(`${runtime}pyodide.mjs`);
   const pyodide = await loadPyodide({ indexURL: runtime });
   const archive = fetch(new URL("engine.zip", import.meta.url)).then(response => {
-    if (!response.ok) throw new Error(`求解器套件載入失敗 (${response.status})`);
+    if (!response.ok) throw new Error(`Could not load the solver package (${response.status}).`);
     return response.arrayBuffer();
   });
   const [, bytes] = await Promise.all([pyodide.loadPackage("numpy"), archive]);
