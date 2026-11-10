@@ -6,7 +6,7 @@
 
 ## GitHub Pages 網頁版
 
-開啟 [Suspension Dynamics Lab](https://dannyhsuc10.github.io/Suspension-model/) 即可在瀏覽器操作。首次開啟會下載 Pyodide 與 NumPy。模型、參數換算、RK4 求解及結果統計與桌面版共用同一套 Python 程式，分析與匯入檔案都在瀏覽器處理。網頁支援四類模型、播放、疊圖、專案 JSON 與 NPZ 匯入，以及 NPZ、CSV、SVG、PNG、HTML 匯出。舊 PKL 可先透過桌面版轉存為 NPZ。
+開啟 [Suspension Dynamics Lab](https://dannyhsuc10.github.io/Suspension-model/) 即可在瀏覽器操作。首次開啟會下載 Pyodide 與 NumPy。模型、參數換算、RK4 求解及結果統計與桌面版共用同一套 Python 程式，分析與匯入檔案都在瀏覽器處理。網頁支援四類模型、播放、疊圖、匯入專案 JSON，以及匯出 NPZ、CSV、SVG、PNG、HTML。
 
 本機預覽可在儲存庫根目錄執行以下命令，再開啟 `http://127.0.0.1:8000/`。
 

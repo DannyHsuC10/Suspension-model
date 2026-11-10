@@ -14,7 +14,7 @@ from suspension_dynamics.project import (
 )
 from suspension_dynamics.project_import import fill_import_project, read_import_project
 from suspension_dynamics.storage import (
-    RESPONSE_NOTE, fingerprint, format_stat, load_result, save_result, statistics,
+    RESPONSE_NOTE, fingerprint, format_stat, save_result, statistics,
     validate_result, write_csv, write_report,
 )
 
@@ -43,7 +43,7 @@ def resolved_project(project):
 
 def pack_result(result):
     meta = {name: getattr(result, name) for name in
-            ("family", "model", "units", "groups", "project", "info", "legacy")}
+            ("family", "model", "units", "groups", "project", "info")}
     meta["comparison"] = fingerprint(result)
     meta["statistics"] = [[format_stat(value) for value in row] for row in statistics(result)]
     return dict(meta=meta, time=result.time, signals=result.signals)
@@ -60,9 +60,6 @@ def file_action(action, args, data):
             if "repairs" in args:
                 return dict(project=fill_import_project(project, fields, args["repairs"]))
             return dict(missing=[asdict(field) for field in fields])
-        if action == "import-result":
-            path.write_bytes(data.to_py())
-            return pack_result(load_result(path))
         if action == "save-project":
             save_project(path, resolved_project(args["project"])["project"])
             return path.read_bytes()
@@ -72,7 +69,7 @@ def file_action(action, args, data):
         result = validate_result(Result(
             meta["family"], meta["model"], np.asarray(arrays["time"]),
             {name: np.asarray(values) for name, values in arrays["signals"].items()},
-            meta["units"], meta["groups"], meta["project"], meta["info"], meta["legacy"],
+            meta["units"], meta["groups"], meta["project"], meta["info"],
         ))
         if args["format"] == "npz":
             save_result(path, result)

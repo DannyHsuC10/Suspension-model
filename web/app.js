@@ -104,7 +104,7 @@ function viewChoices() {
 function selectedFamily() { return families.get(family); }
 
 function setControls() {
-  for (const id of ["analysis-fields", "import-project", "save-project", "settings", "import-result"]) {
+  for (const id of ["analysis-fields", "import-project", "save-project", "settings"]) {
     $(id).disabled = busy || !project;
   }
   for (const id of ["history", "group", "compare", "play", "prev", "next", "time", "play-speed", "reset-zoom"]) {
@@ -113,7 +113,7 @@ function setControls() {
   $("view").disabled = !result || family !== "full";
   $("gain").disabled = !result || $("view").value === "dashboard";
   $("export-format").disabled = $("export").disabled = !result || busy;
-  $("restore").disabled = !result || result.meta.legacy || busy;
+  $("restore").disabled = !result || busy;
   $("stop").hidden = !running;
   $("progress").hidden = !running;
 }
@@ -159,9 +159,9 @@ function installProject(candidate) {
 }
 
 function record(value) {
-  const { family: resultFamily, info, model, project: snapshot, legacy } = value.meta;
+  const { family: resultFamily, info, model, project: snapshot } = value.meta;
   const target = families.get(resultFamily);
-  const scenario = legacy ? "舊資料" : schema.scenarios[snapshot.analysis[resultFamily].scenario];
+  const scenario = schema.scenarios[snapshot.analysis[resultFamily].scenario];
   value.id = String(target.next++);
   value.label = `${value.id.padStart(2, "0")} · ${info.model_label ?? model} · ${scenario}`;
   target.records.push(value);
@@ -234,7 +234,7 @@ function drawChart() {
   const target = selectedFamily();
   const names = result.meta.groups[target.group] ?? [];
   const byModel = new Map();
-  if ($("compare").checked && !result.meta.legacy) {
+  if ($("compare").checked) {
     for (const item of target.records) {
       if (item.meta.comparison === result.meta.comparison) byModel.set(item.meta.model, item);
     }
@@ -262,10 +262,8 @@ function setupDashboard() {
   if (!result || family !== "full") return;
   const corners = ["FL", "FR", "RL", "RR"];
   const channels = ["heave_f", "heave_r", "roll_f", "roll_r", "roll_c", "warp", ...corners.map(corner => `corner_${corner}`)];
-  const legacy = result.meta.legacy;
-  const loads = corners.map((corner, i) => [corner, legacy ? `raw:N[${i}]` : `Normal load ${corner}`]);
-  const forces = channels.map((name, i) => [name, legacy
-    ? (i < 6 ? `raw:F_${name}` : `raw:F_corner[${i - 6}]`) : `Channel ${name}`]);
+  const loads = corners.map(corner => [corner, `Normal load ${corner}`]);
+  const forces = channels.map(name => [name, `Channel ${name}`]);
   for (const [title, definitions] of [["四輪法向輪荷 (N)", loads], ["模態與直推力 (N)", forces]]) {
     const section = el("section");
     const list = el("div", null, "meters");
@@ -501,7 +499,7 @@ for (const id of ["model", "scenario", "target"]) {
     if (!scenarios.includes(opt.scenario)) opt.scenario = scenarios[0];
     renderAnalysis();
     if (id === "model") {
-      const matching = selectedFamily().records.findLast(item => item.meta.model === opt.model && !item.meta.legacy);
+      const matching = selectedFamily().records.findLast(item => item.meta.model === opt.model);
       if (matching) showResult(matching);
     }
   });
@@ -561,22 +559,17 @@ $("save-project").addEventListener("click", () => whileBusy(async () => {
   status("已匯出專案 JSON。");
 }));
 
-for (const [button, input] of [["import-project", "project-file"], ["import-result", "result-file"]]) {
-  $(button).addEventListener("click", () => $(input).click());
-  $(input).addEventListener("change", () => whileBusy(async () => {
-    const file = $(input).files[0];
-    $(input).value = "";
-    if (!file) return;
-    const data = new Uint8Array(await file.arrayBuffer());
-    const value = await rpc(button, {}, { data });
-    if (button === "import-result") {
-      record(value);
-      selectFamily(value.meta.family);
-      status(`已開啟 ${file.name}。`);
-    } else if (value.missing) repairDialog(data, value.missing);
-    else { installProject(value.project); status(`已匯入 ${file.name}。`); }
-  }));
-}
+$("import-project").addEventListener("click", () => $("project-file").click());
+$("project-file").addEventListener("change", () => whileBusy(async () => {
+  const input = $("project-file");
+  const file = input.files[0];
+  input.value = "";
+  if (!file) return;
+  const data = new Uint8Array(await file.arrayBuffer());
+  const value = await rpc("import-project", {}, { data });
+  if (value.missing) repairDialog(data, value.missing);
+  else { installProject(value.project); status(`已匯入 ${file.name}。`); }
+}));
 $("close-repair").addEventListener("click", () => $("repair-dialog").close());
 $("repair-form").addEventListener("submit", async event => {
   event.preventDefault();
