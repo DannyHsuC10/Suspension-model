@@ -91,14 +91,15 @@ export class ResponsePlot {
   }
 
   zoom(event) {
-    if (!this.series.length) return;
+    const delta = event.deltaY || event.deltaX;
+    if (!event.shiftKey || !delta || !this.series.length) return;
     const fraction = this.xAt(event);
     if (fraction < 0 || fraction > 1) return;
     event.preventDefault();
     const [start, end] = this.view;
     const oldWidth = end - start;
     const width = Math.min(this.duration, Math.max(this.duration / 1000,
-      oldWidth * (event.deltaY < 0 ? .8 : 1.25)));
+      oldWidth * (delta < 0 ? .8 : 1.25)));
     const center = start + oldWidth * fraction;
     this.setView(center - width * fraction, center + width * (1 - fraction));
   }

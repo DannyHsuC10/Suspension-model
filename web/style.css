@@ -79,6 +79,7 @@ progress { width: 100%; }
 .visual-toolbar h4 { margin-right: auto; font-size: .9rem; }
 .visual-toolbar button, .visual-toolbar select { padding: .25rem .38rem; font-size: .74rem; color: #eaf1fb; border-color: #4f6078; background: #253550; }
 .visual-toolbar button:enabled:hover { background: #3a4b65; }
+.chart-hint { font-size: .74rem; color: #b9cade; }
 .visual svg { width: 100%; display: block; }
 #chart { touch-action: pan-y; user-select: none; cursor: crosshair; }
 .signal-options { padding: .25rem .7rem .6rem; display: flex; flex-wrap: wrap; gap: .25rem .65rem; max-height: 7.4rem; overflow: auto; }
@@ -121,4 +122,19 @@ dialog footer button { flex-shrink: 0; }
   .result-title { flex-wrap: wrap; }
   .result-files { margin-left: 0; }
   .playback { flex-wrap: wrap; }
+  .chart-hint { display: none; }
+}
+@media (width > 760px) and (height >= 360px) {
+  body { display: grid; grid-template-rows: auto minmax(0, 1fr); height: 100dvh; }
+  main {
+    display: grid;
+    grid-template-rows: auto auto minmax(0, 1fr);
+    width: 100%;
+    min-height: 0;
+    margin-block: 0;
+    padding-bottom: 1.35rem;
+  }
+  .workbench { align-items: stretch; min-height: 0; }
+  .workbench > .panel { overflow: auto; overscroll-behavior-y: contain; scrollbar-gutter: stable; }
+  .results .signal-options, .results .table-scroll { max-height: none; }
 }

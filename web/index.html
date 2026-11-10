@@ -33,8 +33,8 @@
     <nav id="families" class="family-tabs" aria-label="模型分類"></nav>
 
     <div class="workbench">
-      <aside class="panel setup">
-        <div class="panel-title"><span class="index">01</span><h3>模型與輸入</h3></div>
+      <aside class="panel setup" aria-labelledby="setup-title" tabindex="0">
+        <div class="panel-title"><span class="index">01</span><h3 id="setup-title">模型與輸入</h3></div>
         <form id="analysis">
           <fieldset id="analysis-fields" disabled>
             <label>模型版本<select id="model"></select></label>
@@ -55,7 +55,7 @@
         </div>
       </aside>
 
-      <section class="panel results" aria-label="分析結果">
+      <section class="panel results" aria-label="分析結果" tabindex="0">
         <div class="panel-title result-title">
           <span class="index">02</span><h3>分析結果</h3>
           <div class="result-files">
@@ -88,7 +88,9 @@
             <div id="dashboard" hidden></div>
           </section>
           <section class="visual response-panel" aria-label="時間響應曲線">
-            <div class="visual-toolbar"><h4>時間響應</h4><button id="reset-zoom" disabled>重設視圖</button></div>
+            <div class="visual-toolbar"><h4>時間響應</h4>
+              <span class="chart-hint">Shift ＋ 滾輪縮放</span><button id="reset-zoom" disabled>重設視圖</button>
+            </div>
             <svg id="chart" viewBox="0 0 680 310" role="img" aria-label="懸吊時間響應曲線圖"></svg>
             <div id="signals" class="signal-options" aria-label="選擇曲線"></div>
           </section>
