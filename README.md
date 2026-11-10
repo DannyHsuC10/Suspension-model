@@ -4,6 +4,19 @@
 
 介面沿用 SuspensionGeometryLab 的參數設定方式，曲線使用從 VehicleLab 收進本套件的 **Tkinter Canvas 圖表**。動畫直接更新 Canvas 元件，不使用 Matplotlib、不播放預先錄製的 GIF，也不在播放時重新積分。
 
+## GitHub Pages 網頁版
+
+開啟 [Suspension Dynamics Lab](https://dannyhsuc10.github.io/Suspension-model/) 即可在瀏覽器操作。首次開啟會下載 Pyodide 與 NumPy。模型、參數換算、RK4 求解及結果統計與桌面版共用同一套 Python 程式，分析與匯入檔案都在瀏覽器處理。網頁支援四類模型、播放、疊圖、專案 JSON 與 NPZ 匯入，以及 NPZ、CSV、SVG、PNG、HTML 匯出。舊 PKL 可先透過桌面版轉存為 NPZ。
+
+本機預覽可在儲存庫根目錄執行以下命令，再開啟 `http://127.0.0.1:8000/`。
+
+```powershell
+python web/build.py outputs/pages
+python -m http.server 8000 --bind 127.0.0.1 --directory outputs/pages
+```
+
+GitHub Pages 的發布來源選擇 **GitHub Actions**。`main` 上的網頁或求解器更新會觸發 `Publish suspension workbench`，由 `web/build.py` 打包靜態網頁與共用 Python 模組。
+
 ## 啟動
 
 雙擊 **Start-SuspensionDynamicsLab.bat**，或在本資料夾執行：
@@ -96,7 +109,7 @@ PKL 匯入器只允許原 logger 使用的 NumPy 數值陣列類型，拒絕其�
 
 專案 JSON 將車輛參數、阻尼比、車架傳力和 Tender 設定集中存入 `parameters.full`。開啟時套用內建的預設分析設定。舊 JSON 的前 Anti-dive 和後煞車 Anti-lift 會分別帶入新的前、後軸 Anti 比例。需要保留當次分析輸入與計算結果時，請匯出 NPZ。
 
-可直接開啟 [Initial_settings.json](projects/Initial_settings.json) 或其他由 Initial Sizing 匯出的全車 JSON。載入單一參數區塊時，四分之一車的 `ks` 為「前 Heave 主簧與 Tender 串聯剛性，加上前 Roll 剛性，再除以 4」。前 Heave 主簧取 `4 × heave_f_k`，對應匯出時的全車 Heave 通道換算。Tender 停用或沒有有效剛性時，使用純主簧。`mr` 取 `corner_f_mr`，`cs` 使用阻尼比、前軸每輪簧上質量和 `ks` 估算。舊版分組 JSON 仍可開啟。
+可開啟 [Vehicle_initial_settings.json](projects/Vehicle_initial_settings.json) 或其他由 Initial Sizing 匯出的全車 JSON，依匯入對話框補齊缺少的參數。載入單一參數區塊時，四分之一車的 `ks` 為「前 Heave 主簧與 Tender 串聯剛性，加上前 Roll 剛性，再除以 4」。前 Heave 主簧取 `4 × heave_f_k`，對應匯出時的全車 Heave 通道換算。Tender 停用或沒有有效剛性時，使用純主簧。`mr` 取 `corner_f_mr`，`cs` 使用阻尼比、前軸每輪簧上質量和 `ks` 估算。舊版分組 JSON 仍可開啟。
 
 ## 計算整理與適用範圍
 
@@ -115,7 +128,7 @@ PKL 匯入器只允許原 logger 使用的 NumPy 數值陣列類型，拒絕其�
 ```powershell
 python -m unittest discover -s tests -v
 python -m suspension_dynamics.cli --family full --model flex --scenario combined --duration 3 --output outputs/full_case
-python -m suspension_dynamics --project projects/Initial_settings.json
+python -m suspension_dynamics --project projects/LP03.json
 python -m suspension_dynamics --result outputs/full_case.npz
 ```
 

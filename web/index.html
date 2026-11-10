@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="瀏覽器中的懸吊彈簧阻尼模型分析工作台">
+  <title>懸吊動態分析 · Suspension Dynamics Lab</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='8' fill='%23111d31'/%3E%3Cpath d='M20 5v6m0 18v6M13 12h14M13 28h14M20 12l-6 4 12 4-12 4 6 4' fill='none' stroke='%2360e0c6' stroke-width='2'/%3E%3C/svg%3E">
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 40 40" fill="none" aria-hidden="true">
+        <path d="M20 5v6m0 18v6M13 12h14M13 28h14M20 12l-6 4 12 4-12 4 6 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <div><p class="eyebrow">SUSPENSION DYNAMICS LAB</p><h1>懸吊動態分析</h1></div>
+    </div>
+    <div class="toolbar">
+      <button id="import-project" disabled>匯入專案</button>
+      <button id="save-project" disabled>儲存專案</button>
+      <button id="settings" disabled>車輛／彈簧阻尼設定</button>
+      <input id="project-file" type="file" accept=".json,application/json" hidden>
+    </div>
+  </header>
+
+  <main>
+    <div class="workbench-heading">
+      <div><p class="eyebrow">ANALYSIS WORKBENCH</p><h2 id="project-name">懸吊彈簧阻尼分析</h2></div>
+      <p class="runtime"><span></span> 計算在瀏覽器執行</p>
+    </div>
+    <nav id="families" class="family-tabs" aria-label="模型分類"></nav>
+
+    <div class="workbench">
+      <aside class="panel setup">
+        <div class="panel-title"><span class="index">01</span><h3>模型與輸入</h3></div>
+        <form id="analysis">
+          <fieldset id="analysis-fields" disabled>
+            <label>模型版本<select id="model"></select></label>
+            <label id="source-row" hidden>參數來源（全車）<select id="source"></select></label>
+            <label>輸入情境<select id="scenario"></select></label>
+            <label>路面作用輪位<select id="target"></select></label>
+            <div id="numbers" class="numeric-grid"></div>
+            <label id="delay-row" class="check" hidden><input id="delay" type="checkbox">同一輪跡延遲至後軸</label>
+            <div class="run-actions"><button id="run" class="primary" type="submit">計算此模型 <kbd>F5</kbd></button>
+            <button id="run-all" type="button">計算本類全部模型</button></div>
+          </fieldset>
+        </form>
+        <div class="status-area">
+          <progress id="progress" max="1" hidden aria-label="計算進度"></progress>
+          <p id="status" role="status">正在載入 Python 求解器與 NumPy…</p>
+          <button id="stop" type="button" hidden>停止計算</button>
+          <button id="retry" type="button" hidden>重新載入求解器</button>
+        </div>
+      </aside>
+
+      <section class="panel results" aria-label="分析結果">
+        <div class="panel-title result-title">
+          <span class="index">02</span><h3>分析結果</h3>
+          <div class="result-files">
+            <button id="import-result" disabled>開啟 NPZ</button>
+            <input id="result-file" type="file" accept=".npz" hidden>
+            <select id="export-format" aria-label="匯出格式" disabled>
+              <option value="npz">NPZ</option><option value="csv">CSV</option><option value="svg">SVG</option>
+              <option value="png">PNG</option><option value="html">HTML</option>
+            </select>
+            <button id="export" disabled>匯出</button>
+          </div>
+        </div>
+        <div class="result-controls">
+          <label>結果紀錄<select id="history" disabled></select></label>
+          <label>訊號分類<select id="group" disabled></select></label>
+          <button id="restore" disabled>套用分析輸入</button>
+          <label class="check"><input id="compare" type="checkbox" disabled>疊圖比較</label>
+        </div>
+        <p id="result-note" class="result-note">計算後可播放模型、檢視曲線並匯出結果。</p>
+        <div class="visuals">
+          <section class="visual motion-panel" aria-label="模型動畫">
+            <div class="visual-toolbar"><h4 id="motion-title">模型動畫</h4>
+              <select id="view" aria-label="模型視角" disabled></select>
+              <select id="gain" aria-label="位移倍率" disabled>
+                <option value="1">位移 ×1</option><option value="5">位移 ×5</option>
+                <option value="10">位移 ×10</option><option value="20">位移 ×20</option>
+              </select>
+            </div>
+            <svg id="motion" viewBox="0 0 500 300" role="img" aria-label="懸吊模型示意圖"></svg>
+            <div id="dashboard" hidden></div>
+          </section>
+          <section class="visual response-panel" aria-label="時間響應曲線">
+            <div class="visual-toolbar"><h4>時間響應</h4><button id="reset-zoom" disabled>重設視圖</button></div>
+            <svg id="chart" viewBox="0 0 680 310" role="img" aria-label="懸吊時間響應曲線圖"></svg>
+            <div id="signals" class="signal-options" aria-label="選擇曲線"></div>
+          </section>
+        </div>
+        <div class="playback" aria-label="播放控制">
+          <button id="play" disabled>播放</button>
+          <button id="prev" disabled aria-label="上一個取樣">‹</button>
+          <button id="next" disabled aria-label="下一個取樣">›</button>
+          <input id="time" type="range" min="0" max="0" value="0" aria-label="目前取樣" disabled>
+          <output id="clock">0.000 s</output>
+          <select id="play-speed" aria-label="播放速度" disabled>
+            <option value="0.25">0.25×</option><option value="0.5">0.5×</option>
+            <option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option>
+          </select>
+        </div>
+        <details id="statistics"><summary>數值結果</summary><p id="response-note"></p><div class="table-scroll" id="stats"></div></details>
+        <details><summary>模型說明／計算快照</summary><p id="notes"></p><pre id="snapshot"></pre></details>
+      </section>
+    </div>
+  </main>
+
+  <dialog id="parameter-dialog">
+    <form id="parameter-form">
+      <header class="dialog-title"><h2>車輛／彈簧阻尼設定</h2><button id="close-settings" type="button" aria-label="關閉設定">×</button></header>
+      <div class="dialog-body">
+        <label>專案名稱<input id="edit-name" required></label>
+        <nav id="parameter-tabs" class="family-tabs" aria-label="參數分類"></nav>
+        <div id="parameters"></div>
+        <p class="help">MR = 彈簧行程 ÷ 輪端行程。輪端剛性和阻尼等於元件數值乘以 MR²。</p>
+      </div>
+      <footer><p id="parameter-error" role="alert"></p><button id="apply-settings" class="primary">套用全部設定</button></footer>
+    </form>
+  </dialog>
+  <dialog id="repair-dialog">
+    <form id="repair-form">
+      <header class="dialog-title"><h2>補齊專案參數</h2><button id="close-repair" type="button" aria-label="取消匯入">×</button></header>
+      <div class="dialog-body"><p>留空的欄位會使用標示的預設值。</p><div id="repairs" class="numeric-grid"></div></div>
+      <footer><p id="repair-error" role="alert"></p><button class="primary" id="apply-repair">補齊並匯入</button></footer>
+    </form>
+  </dialog>
+</body>
+</html>
