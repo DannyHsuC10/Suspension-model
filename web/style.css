@@ -94,6 +94,13 @@ progress { width: 100%; }
 details { margin-top: .7rem; padding-top: .6rem; border-top: 1px solid var(--line); }
 summary { cursor: pointer; font-weight: 600; }
 details p { margin-top: .5rem; white-space: pre-line; color: var(--muted); line-height: 1.6; }
+#notes { max-width: 86ch; padding-bottom: .5rem; line-height: 1.6; overflow-wrap: break-word; }
+#notes h3 { margin: 1.2rem 0 .5rem; font-size: 1.12rem; }
+#notes h4 { margin: .8rem 0 .4rem; font-size: 1rem; }
+#notes p { white-space: normal; }
+#notes .math-block { margin: .55rem 0; padding-inline: .65rem; overflow-x: auto; background: #f3f7fb; border-radius: 6px; }
+#notes .katex-display { margin: .6em 0; }
+#notes .katex-display > .katex { text-align: left; }
 pre { white-space: pre-wrap; overflow-wrap: anywhere; background: #eef3f8; padding: .8rem; border-radius: 6px; font-size: .8rem; }
 .table-scroll { overflow: auto; max-height: 28rem; }
 table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; font-size: .82rem; }

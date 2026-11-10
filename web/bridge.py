@@ -6,7 +6,7 @@ from tempfile import TemporaryDirectory
 
 import numpy as np
 
-from suspension_dynamics.catalog import FAMILIES, MODELS, NOTES, SCENARIOS, TARGETS, scenarios, targets
+from suspension_dynamics.catalog import FAMILIES, MODELS, SCENARIOS, TARGETS, scenarios, targets
 from suspension_dynamics.engine import Result, simulate
 from suspension_dynamics.project import (
     FIELDS, INPUT_FIELDS, LINKED_LOCAL_FIELDS, PARAMETER_SOURCES, default_project,
@@ -26,7 +26,7 @@ def bootstrap():
                           for family, models in MODELS.items()},
         targets={family: {key: TARGETS[key] for key in targets(family)} for family in FAMILIES},
         sources=PARAMETER_SOURCES, inputs=INPUT_FIELDS, fields=FIELDS,
-        local=LINKED_LOCAL_FIELDS, notes=NOTES, response_note=RESPONSE_NOTE,
+        local=LINKED_LOCAL_FIELDS, response_note=RESPONSE_NOTE,
     )
 
 

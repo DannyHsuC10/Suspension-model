@@ -9,7 +9,7 @@ def build(destination):
     web = Path(__file__).resolve().parent
     package = web.parent / "suspension_dynamics"
     destination.mkdir(parents=True, exist_ok=True)
-    for name in ("index.html", "style.css", "app.js", "plots.js", "worker.js"):
+    for name in ("index.html", "style.css", "app.js", "plots.js", "worker.js", "notes.js", "model-notes.md"):
         copyfile(web / name, destination / name)
     with ZipFile(destination / "engine.zip", "w", ZIP_DEFLATED) as archive:
         for name in ("__init__.py", "catalog.py", "default_project.json", "engine.py",

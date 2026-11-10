@@ -1,7 +1,9 @@
 import { ResponsePlot, curveColor, drawMotion, sampleIndex } from "./plots.js";
+import { bindModelNotes } from "./notes.js";
 
 const $ = id => document.getElementById(id);
 const plot = new ResponsePlot($("chart"));
+const updateModelNotes = bindModelNotes($("model-notes"), $("notes"));
 const charts = { quarter: "side", LR: "front", FR: "side", full: "dashboard" };
 const caseFields = {
   bump: ["height", "period"], step: ["height"], sine: ["height", "frequency"],
@@ -122,6 +124,7 @@ function renderAnalysis() {
   options($("model"), schema.models[family], opt.model);
   const available = schema.family_scenarios[family][opt.model];
   options($("scenario"), Object.fromEntries(available.map(key => [key, schema.scenarios[key]])), opt.scenario);
+  updateModelNotes(family, opt.model, opt.scenario);
   options($("target"), schema.targets[family], opt.target);
   const source = schema.sources[family];
   $("source-row").hidden = !source;
@@ -610,7 +613,6 @@ async function start() {
   drawMotion($("motion"), null, 0, "side", 1);
   try {
     schema = await rpc("bootstrap");
-    $("notes").textContent = schema.notes;
     $("response-note").textContent = schema.response_note;
     for (const [key, [label, unit]] of Object.entries(schema.inputs)) {
       const [field, input] = numberField(label, unit);
