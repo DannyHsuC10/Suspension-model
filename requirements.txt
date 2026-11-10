@@ -1,0 +1,3 @@
+# Python 3.10+ and Tkinter are required. No SciPy or Matplotlib.
+numpy>=1.24
+# Optional: Pillow>=10.0 for PNG export. SVG/CSV/HTML/NPZ need no Pillow.

@@ -1,39 +1,7 @@
-# 要忽略的資料夾
-# 剛性絕對不能上傳到github有機密資料
-Tire_Z_Rigidity/data/csv/
-Tire_Z_Rigidity/data/excel/
-Tire_Z_Rigidity/data/mat/
-Tire_Z_Rigidity/data/Filtered_data/
-Tire_Z_Rigidity/Filter/Filtering_Limits_stage.json
-Tire_Z_Rigidity/Figures/*.png
-result.md
-Model_testing/batch_results/
-# 編譯或暫存檔
-*.log
-*.tmp
-*.bak
-*.swp
-
-# 系統檔案
-.DS_Store
-Thumbs.db
-
-# IDE 設定
-.idea/
-
-# 虛擬環境
-.venv/
-
-# Python 常見暫存
 __pycache__/
-*.pyc
-
-# Jupyter Notebook checkpoint
-.ipynb_checkpoints/
-
-# VSCode 設定檔
-.vscode/
-
-# 其他常見的備份檔
-*.old
-*.orig
+*.py[cod]
+*.log
+.venv/
+.test-output/
+.test-tmp/
+outputs/
