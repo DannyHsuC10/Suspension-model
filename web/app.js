@@ -118,7 +118,6 @@ function setControls() {
 
 function renderAnalysis() {
   tabButtons($("families"), family, selectFamily);
-  $("project-name").textContent = project.name;
   const opt = project.analysis[family];
   options($("model"), schema.models[family], opt.model);
   const available = schema.family_scenarios[family][opt.model];

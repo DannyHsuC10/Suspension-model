@@ -37,17 +37,12 @@ label input, label select { width: 100%; }
 .app-header { padding: 1.1rem clamp(1rem, 3vw, 3.5rem); display: flex; justify-content: space-between; gap: 1rem; align-items: center; background: var(--night); color: #f4f8fc; }
 .brand { display: flex; align-items: center; gap: .78rem; }
 .brand-mark { width: 40px; height: 40px; border: 1px solid #4a6d7a; border-radius: 9px; color: #60e0c6; }
-.eyebrow { font-size: .7rem; font-weight: 700; letter-spacing: .13em; color: var(--accent); }
-.brand .eyebrow { color: #86dbc9; }
+.eyebrow { font-size: .7rem; font-weight: 700; letter-spacing: .13em; color: #86dbc9; }
 h1 { font-size: 1.45rem; letter-spacing: .05em; }
 .toolbar, .result-files, .run-actions { display: flex; flex-wrap: wrap; gap: .42rem; }
 .toolbar button { color: #f0f6fc; border-color: #506179; background: #1d2b44; }
 .toolbar button:enabled:hover { background: #294157; }
-main { max-width: 1800px; margin: auto; padding: 1.35rem clamp(1rem, 3vw, 3.5rem) 2.5rem; }
-.workbench-heading { display: flex; justify-content: space-between; align-items: end; gap: .8rem; margin-bottom: .9rem; }
-.workbench-heading h2 { margin-top: .2rem; font-size: 1.7rem; overflow-wrap: anywhere; }
-.runtime { color: var(--muted); font-size: .78rem; white-space: nowrap; }
-.runtime span { display: inline-block; width: .55rem; height: .55rem; background: #128b78; border-radius: 50%; }
+main { max-width: 1800px; margin: auto; padding: .55rem clamp(1rem, 3vw, 3.5rem) 2.5rem; }
 .family-tabs { display: flex; flex-wrap: wrap; gap: .35rem; margin: .65rem 0 .85rem; }
 .family-tabs button { padding: .58rem .88rem; }
 .family-tabs button[aria-pressed=true], .primary { color: #fff; border-color: var(--accent); background: var(--accent); }
@@ -117,7 +112,7 @@ dialog footer button { flex-shrink: 0; }
 #parameters input[readonly] { background: #eaf0f6; color: #46586e; }
 @media (max-width: 1150px) { .visuals { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 760px) {
-  .app-header, .workbench-heading { flex-wrap: wrap; }
+  .app-header { flex-wrap: wrap; }
   .workbench { grid-template-columns: minmax(0, 1fr); }
   .result-title { flex-wrap: wrap; }
   .result-files { margin-left: 0; }
@@ -128,7 +123,7 @@ dialog footer button { flex-shrink: 0; }
   body { display: grid; grid-template-rows: auto minmax(0, 1fr); height: 100dvh; }
   main {
     display: grid;
-    grid-template-rows: auto auto minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
     width: 100%;
     min-height: 0;
     margin-block: 0;
