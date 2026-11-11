@@ -18,7 +18,9 @@ COMMON = {
     "zeta": field("自動估算用阻尼比 ζ", "1"),
 }
 LINKED_LOCAL_FIELDS = {"quarter": ("zeta", "ks", "cs", "mr"), "LR": ("k_frame", "c_frame", "m_frame"), "FR": ()}
-SIZING_METADATA = ("tender_enabled", "tender_stiffness_N_per_m", "heave_configuration")
+SIZING_METADATA = (
+    "tender_enabled", "tender_stiffness_N_per_m", "heave_configuration", "heave_stiffness_basis",
+)
 MODAL_CHANNELS = ("heave_f", "heave_r", "roll_f", "roll_r", "roll_c", "warp")
 FULL_CHANNEL_LABELS = {name: name for name in MODAL_CHANNELS} | {
     "corner_f": "前軸直推 corner_f",
@@ -366,6 +368,8 @@ def _normalize_sizing_export(project):
         sections[name] = values
 
     full = sections["vehicle"] | sections["dynamics"]
+    if project["schema_version"] == 3:
+        full["heave_stiffness_basis"] = "main_spring"
     geometry = sections["geometry"].copy()
     full.update({key: geometry.pop(key) for key in ("h_rc_f", "h_rc_r") if key in geometry})
     geometry["vehicle"] = {key: full.pop(key) for key in ("gravity", "free_radius") if key in full}
@@ -388,7 +392,7 @@ def _normalize_sizing_export(project):
 def read_project(path):
     project = json.loads(Path(path).read_text(encoding="utf-8-sig"))
     if (isinstance(project, dict) and project.get("application") == "VehicleInitialSizingLab-DynamicsExport"
-            and project.get("schema_version") == 2):
+            and project.get("schema_version") in (2, 3)):
         project = _normalize_sizing_export(project)
     if (not isinstance(project, dict) or project.get("schema_version") != 1
             or project.get("application") not in ("SuspensionDynamicsLab", "VehicleInitialSizingLab-DynamicsExport")):
@@ -428,8 +432,10 @@ def estimate_quarter_from_full(project, metadata):
         raise ValueError("Tender 啟用狀態須為布林值。")
     if tender is not None and (type(tender) not in (int, float) or not math.isfinite(tender) or tender <= 0):
         raise ValueError("Tender 剛性須為正的有限數值，或留空。")
-    # Recover the front main-spring rate from the axle-sum heave channel.
-    heave = 4 * full["heave_f_k"]
+    heave = full["heave_f_k"]
+    if metadata.get("heave_stiffness_basis") != "main_spring":
+        # Legacy exports stored the front main-spring rate divided by four.
+        heave *= 4
     if enabled and tender is not None and heave > 0:
         heave = 1 / (1 / heave + 1 / tender)
     quarter = parameters_for_analysis(project, "quarter")

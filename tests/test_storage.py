@@ -162,11 +162,24 @@ class StorageTests(unittest.TestCase):
         new_path = self.root / "categorized.json"
         old_path.write_text(json.dumps(legacy), encoding="utf-8")
         expected = load_project(old_path)
+        main_spring_export = flattened | {"schema_version": 3, "dynamics": flattened["dynamics"] | {
+            key: 4 * full[key] for key in ("heave_f_k", "heave_r_k")
+        }}
         for export in (nested, flattened):
             new_path.write_text(json.dumps(export), encoding="utf-8")
             _, missing = read_import_project(new_path)
             self.assertEqual(missing, [])
             self.assertEqual(load_project(new_path), expected)
+
+        new_path.write_text(json.dumps(main_spring_export), encoding="utf-8")
+        _, missing = read_import_project(new_path)
+        self.assertEqual(missing, [])
+        loaded = load_project(new_path)
+        for key in ("heave_f_k", "heave_r_k"):
+            self.assertEqual(loaded["parameters"]["full"][key], main_spring_export["dynamics"][key])
+        self.assertEqual(loaded["parameters"]["quarter"], expected["parameters"]["quarter"])
+        save_project(new_path, loaded)
+        self.assertEqual(load_project(new_path), loaded)
 
     def test_archived_results_keep_the_original_wheel_parameters(self):
         result = copy.deepcopy(self.result)
