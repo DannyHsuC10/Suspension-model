@@ -3,7 +3,9 @@ const runtime = "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/";
 async function loadEngine() {
   const { loadPyodide } = await import(`${runtime}pyodide.mjs`);
   const pyodide = await loadPyodide({ indexURL: runtime });
-  const archive = fetch(new URL("engine.zip", import.meta.url)).then(response => {
+  const archiveUrl = new URL("engine.zip", import.meta.url);
+  archiveUrl.search = new URL(import.meta.url).search;
+  const archive = fetch(archiveUrl).then(response => {
     if (!response.ok) throw new Error(`Could not load the solver package (${response.status}).`);
     return response.arrayBuffer();
   });

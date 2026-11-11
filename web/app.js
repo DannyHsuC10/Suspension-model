@@ -32,7 +32,9 @@ function status(text, error = false) {
 
 function rpc(action, payload = {}, { data, onProgress } = {}) {
   if (!worker) {
-    worker = new Worker(new URL("worker.js", import.meta.url), { type: "module" });
+    const workerUrl = new URL("worker.js", import.meta.url);
+    workerUrl.search = new URL(import.meta.url).search;
+    worker = new Worker(workerUrl, { type: "module" });
     worker.onmessage = ({ data: reply }) => {
       const request = requests.get(reply.id);
       if (!request) return;
@@ -152,6 +154,7 @@ function selectFamily(nextFamily) {
 
 function installProject(candidate) {
   project = candidate;
+  (project.auto_damping ??= {}).quarter = true;
   for (const key of Object.keys(schema.families)) {
     families.set(key, { records: [], selected: null, next: 1, view: charts[key], gain: "1", group: null, signals: new Set() });
   }
@@ -621,6 +624,7 @@ async function start() {
   drawMotion($("motion"), null, 0, "side", 1);
   try {
     schema = await rpc("bootstrap");
+    delete schema.fields.quarter.cs;
     $("response-note").textContent = schema.response_note;
     for (const [key, [label, unit]] of Object.entries(schema.inputs)) {
       const [field, input] = numberField(label, unit);
