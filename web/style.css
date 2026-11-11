@@ -34,7 +34,7 @@ label small { color: var(--muted); font-weight: 400; }
 label input, label select { width: 100%; }
 .check { display: flex; align-items: center; gap: .4rem; }
 .check input { width: auto; margin: 0; }
-.app-header { padding: 1.1rem clamp(1rem, 3vw, 3.5rem); display: flex; justify-content: space-between; gap: 1rem; align-items: center; background: var(--night); color: #f4f8fc; }
+.app-header { padding: 1.1rem clamp(1rem, 3vw, 3.5rem); display: flex; justify-content: space-between; gap: 1rem; align-items: center; background: var(--night); color: #f4f8fc; border-bottom: 4px solid #58b2b9; }
 .brand { display: flex; align-items: center; gap: .78rem; }
 .brand-mark { width: 40px; height: 40px; border: 1px solid #4a6d7a; border-radius: 9px; color: #60e0c6; }
 .eyebrow { font-size: .7rem; font-weight: 700; letter-spacing: .13em; color: #86dbc9; }
