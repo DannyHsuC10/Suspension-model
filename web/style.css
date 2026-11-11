@@ -114,7 +114,6 @@ dialog form { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; max-h
 .dialog-body .help, #repairs { margin-top: .75rem; }
 dialog footer p { font-size: .85rem; }
 dialog footer button { flex-shrink: 0; }
-#parameters .check { margin-bottom: .7rem; }
 #parameters input[readonly] { background: #eaf0f6; color: #46586e; }
 @media (max-width: 1150px) { .visuals { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 760px) {

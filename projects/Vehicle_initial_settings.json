@@ -1,15 +1,15 @@
 {
   "application": "VehicleInitialSizingLab-DynamicsExport",
-  "schema_version": 2,
+  "schema_version": 3,
   "name": "Vehicle Initial Sizing",
   "dynamics": {
     "anti_front": 0.09090909090909091,
     "anti_rear": 0.09090909090909091,
-    "heave_f_k": 18974.983348595713,
-    "heave_f_c": 1116.1977453250809,
+    "heave_f_k": 149250.1355526685,
+    "heave_f_c": 1565.2287293226677,
     "heave_f_mr": 1,
-    "heave_r_k": 18974.983348595713,
-    "heave_r_c": 1116.1977453250809,
+    "heave_r_k": 149250.1355526685,
+    "heave_r_c": 1565.2287293226677,
     "heave_r_mr": 1,
     "roll_f_k": 105638.15836389574,
     "roll_f_c": 762.3868700660832,
@@ -39,7 +39,7 @@
     "k_frame": 636283.0341215229,
     "m_frame": 67.0,
     "tender_enabled": true,
-    "tender_stiffness_N_per_m": 124195.07143003517,
+    "tender_stiffness_N_per_m": 37425.56654963822,
     "heave_configuration": "main_spring"
   },
   "geometry": {

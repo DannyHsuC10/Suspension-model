@@ -109,7 +109,7 @@ PKL 匯入器只允許原 logger 使用的 NumPy 數值陣列類型，拒絕其�
 
 專案 JSON 將車輛參數、阻尼比、車架傳力和 Tender 設定集中存入 `parameters.full`。開啟時套用內建的預設分析設定。舊 JSON 的前 Anti-dive 和後煞車 Anti-lift 會分別帶入新的前、後軸 Anti 比例。需要保留當次分析輸入與計算結果時，請匯出 NPZ。
 
-可開啟 [Vehicle_initial_settings.json](projects/Vehicle_initial_settings.json) 或其他由 Initial Sizing 匯出的全車 JSON，依匯入對話框補齊缺少的參數。載入單一參數區塊時，四分之一車的 `ks` 為「前 Heave 主簧與 Tender 串聯剛性，加上前 Roll 剛性，再除以 4」。前 Heave 主簧取 `4 × heave_f_k`，對應匯出時的全車 Heave 通道換算。Tender 停用或沒有有效剛性時，使用純主簧。`mr` 取 `corner_f_mr`，`cs` 使用阻尼比、前軸每輪簧上質量和 `ks` 估算。舊版分組 JSON 仍可開啟。
+可開啟 [Vehicle_initial_settings.json](projects/Vehicle_initial_settings.json) 或其他由 Initial Sizing 匯出的全車 JSON，依匯入對話框補齊缺少的參數。載入單一參數區塊時，四分之一車的 `ks` 為「前 Heave 主簧與 Tender 串聯剛性，加上前 Roll 剛性，再除以 4」。Initial Sizing v3 的 `heave_f_k` 和 `heave_r_k` 直接載入。四分之一車使用 v3 的 `heave_f_k` 作為前主簧簧率，舊版則以 `4 × heave_f_k` 還原主簧簧率。Tender 停用或沒有有效剛性時，使用純主簧。`mr` 取 `corner_f_mr`，`cs` 使用阻尼比、前軸每輪簧上質量和 `ks` 估算。舊版分組 JSON 仍可開啟。
 
 ## 計算整理與適用範圍
 

@@ -423,35 +423,18 @@ function renderParameters(effective) {
     await previewParameters();
   });
   parameterInputs = new Map();
-  const nodes = [];
-  if (editFamily === "quarter") {
-    const automatic = el("input");
-    automatic.type = "checkbox";
-    automatic.checked = Boolean(draft.auto_damping?.quarter);
-    automatic.addEventListener("change", async () => {
-      saveDraft();
-      draft.auto_damping = automatic.checked ? { quarter: true } : {};
-      renderParameters();
-      await previewParameters();
-    });
-    const label = el("label", null, "check");
-    label.append(automatic, "Estimate damping from ratio ζ");
-    nodes.push(label);
-  }
   const grid = el("div", null, "numeric-grid");
   const local = schema.local[editFamily] ?? Object.keys(schema.fields[editFamily]);
   const base = draft.parameters[editFamily];
   for (const [key, [label, unit]] of Object.entries(schema.fields[editFamily])) {
     if (!local.includes(key) && !(key in (effective ?? {}))) continue;
-    const automatic = editFamily === "quarter" && key === "cs" && draft.auto_damping?.quarter;
-    const readOnly = !local.includes(key) || automatic;
+    const readOnly = !local.includes(key);
     const [row, input] = numberField(label, unit, readOnly ? effective?.[key] ?? base[key] : base[key], readOnly);
     input.addEventListener("change", () => { if (!input.readOnly) previewParameters(); });
     parameterInputs.set(key, input);
     grid.append(row);
   }
-  nodes.push(grid);
-  $("parameters").replaceChildren(...nodes);
+  $("parameters").replaceChildren(grid);
 }
 
 async function previewParameters() {
@@ -466,7 +449,6 @@ async function previewParameters() {
     } else {
       for (const [key, input] of parameterInputs) if (input.readOnly) input.value = effective[key] ?? "";
     }
-    if (draft.auto_damping?.quarter) draft.parameters.quarter.cs = current.project.parameters.quarter.cs;
   } catch (error) {
     if (version === editVersion) $("parameter-error").textContent = error.message;
   }
