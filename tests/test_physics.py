@@ -239,7 +239,7 @@ class DynamicsTests(unittest.TestCase):
         transfer = (equilibrium['Normal load R'] - equilibrium['Normal load L']) * p['track'] / 2
         self.assertAlmostEqual(transfer, mass * 2 * p['h_cg'])
 
-    def test_linked_lateral_model_matches_full_front_axle_rates_and_mass(self):
+    def test_linked_lateral_model_uses_front_axle_element_rates_and_mass(self):
         full = self.p['parameters']['full']
         full.update(lf=.8, lr=1.2, mu_f=12., mu_r=19., tire_f_mr=1.2, tire_r_mr=.8,
                     heave_f_mr=.9, roll_f_mr=1.1, corner_f_k=2400., corner_f_c=100., corner_f_mr=1.3,
@@ -248,8 +248,13 @@ class DynamicsTests(unittest.TestCase):
         vehicle = assemble('full', 'flex', full)
         np.testing.assert_allclose(vehicle.channel_k[-4:], [4056., 4056., 3200., 3200.])
         np.testing.assert_allclose(vehicle.channel_c[-4:], [169., 169., 128., 128.])
-        np.testing.assert_allclose(lateral.ks, vehicle.ks[:2, :2])
-        np.testing.assert_allclose(lateral.cs, vehicle.cs[:2, :2])
+        for mode, direction in (('heave', [1., 1.]), ('roll', [1., -1.])):
+            with self.subTest(mode=mode):
+                mr_squared = full[f'{mode}_f_mr'] ** 2
+                k = full[f'{mode}_f_k'] * mr_squared + 4056.
+                c = full[f'{mode}_f_c'] * mr_squared + 169.
+                np.testing.assert_allclose(lateral.ks @ direction, np.multiply(k, direction))
+                np.testing.assert_allclose(lateral.cs @ direction, np.multiply(c, direction))
         np.testing.assert_allclose(lateral.kt, vehicle.kt[:2])
         np.testing.assert_allclose(lateral.ct, vehicle.ct[:2])
         np.testing.assert_allclose(lateral.static_load, vehicle.static_load[:2])

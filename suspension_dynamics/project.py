@@ -241,11 +241,10 @@ def parameters_for_analysis(project, family):
     if family == "LR":
         p.update(ms=sprung_mass * front_share / 2, Ix=full["Ixx"] * front_share,
                  track=full["tf"], h_rc=full["h_rc_f"])
-        # The lateral model uses normalized sum/difference coordinates.
         for mode in ("heave", "roll"):
             channel = f"{mode}_f"
-            p[f"k_{mode}"] = 2 * full[f"{channel}_k"]
-            p[f"c_{mode}"] = 2 * full[f"{channel}_c"]
+            p[f"k_{mode}"] = full[f"{channel}_k"]
+            p[f"c_{mode}"] = full[f"{channel}_c"]
             p[f"mr_{mode}"] = full[f"{channel}_mr"]
         for side, (kt, ct), (ks, cs) in zip(("left", "right"), tire, direct):
             p.pop(f"mu_{side}", None)

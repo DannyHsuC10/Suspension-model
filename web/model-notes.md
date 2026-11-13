@@ -202,7 +202,7 @@ m_{u,i}\ddot z_{u,i} &=F_{t,i}-F_{s,i}+G_i,\qquad i\in\{L,R\}.
 The frame spring $k_\eta$ and damper $c_\eta$ transmit the command through a dynamic state with mass $m_\eta$. The transferred force acts oppositely on the body and wheels. The track width $w$ and the heights $h_\mathrm{CG}$ and $h_\mathrm{RC}$ set the moment arms.
 
 <!-- section: model.LR.rates -->
-**Suspension rates and forces.** The left and right deflections are $\mathbf d=\mathbf z_s-\mathbf z_b$. The heave channel uses their sum and the roll channel their difference, both scaled by $1/\sqrt{2}$. Each side can also have a direct spring and damper.
+**Suspension rates and forces.** The left and right deflections are $\mathbf d=\mathbf z_s-\mathbf z_b$. The heave channel uses their sum and the roll channel their difference, both scaled by $1/\sqrt{2}$. The model uses the front axle's element rates directly. For equal in-phase wheel travel, the heave contribution per wheel is the element rate times its motion ratio squared. For equal opposite wheel travel, the same relation applies to the roll contribution. Each side can also have a direct spring and damper.
 
 ```math
 \begin{aligned}
