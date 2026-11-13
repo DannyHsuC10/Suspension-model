@@ -253,7 +253,7 @@ I_y\ddot\theta&=l_f(F_{s,F}-G_F)-l_r(F_{s,R}-G_R)+T_y,\\
 The front and rear anti ratios $\alpha_f,\alpha_r$ set the geometric forces $G_F,G_R$. Those forces act on each wheel and react oppositely on the body. The signed acceleration $a_x$ reverses both the inertia moment and the geometric forces during braking.
 
 <!-- section: model.FR.rates -->
-**Suspension rates and forces.** At each end $i\in\{F,R\}$, the heave and direct corner elements act in parallel. Let $r_{h,i}$ and $r_c$ be their motion ratios. The rate sums and force are
+**Suspension rates and forces.** At each end $i\in\{F,R\}$, the heave and direct corner elements act in parallel. Both ends use the selected axle's heave element rates. The heave motion ratio $r_{h,i}$ is element travel divided by symmetric axle heave travel. Let $r_c$ be the direct corner motion ratio. The rate sums and force are
 
 ```math
 \begin{aligned}

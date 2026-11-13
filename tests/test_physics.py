@@ -265,8 +265,11 @@ class DynamicsTests(unittest.TestCase):
         self.assertEqual(rear.info['parameter_axle'], 'rear')
         self.assertEqual((p['lf'], p['lr'], p['Iy']), (full['lf'], full['lr'], full['Iyy'] / 2))
         self.assertEqual((p['kt'], p['mu']), (120000., 23.))
-        system = assemble('FR', 'half', p)
-        np.testing.assert_allclose(system.ks.diagonal(), 2 * full['heave_r_k'] * .8**2 + 7200.)
+        for model in ('half_2dof', 'half'):
+            with self.subTest(model=model):
+                system = assemble('FR', model, p)
+                np.testing.assert_allclose(system.ks.diagonal(), full['heave_r_k'] * .8**2 + 7200.)
+                np.testing.assert_allclose(system.cs.diagonal(), full['heave_r_c'] * .8**2)
         self.assertGreater(np.max(np.abs(front.signals['Body F'] - rear.signals['Body F'])), .01)
         self.assertEqual(front.project['analysis']['FR']['parameter_axle'], 'front')
 

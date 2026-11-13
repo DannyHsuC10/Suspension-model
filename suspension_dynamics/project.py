@@ -253,10 +253,10 @@ def parameters_for_analysis(project, family):
     else:
         p.update(ms=sprung_mass / 4, Iy=full["Iyy"] / 2, lf=full["lf"], lr=full["lr"],
                  anti_front=full["anti_front"], anti_rear=full["anti_rear"])
-        # In symmetric axle heave, each side carries half the full axle force.
+        # Use the decoupled heave element rates with MR referenced to axle heave travel.
         for end, index in (("front", "f"), ("rear", "r")):
-            p[f"k_heave_{index}"] = 2 * full[f"{heave}_k"]
-            p[f"c_heave_{index}"] = 2 * full[f"{heave}_c"]
+            p[f"k_heave_{index}"] = full[f"{heave}_k"]
+            p[f"c_heave_{index}"] = full[f"{heave}_c"]
             p[f"mr_{end}"] = full[f"{heave}_mr"]
             p[f"k_{end}"] = (direct[0][0] + direct[1][0]) / 2
             p[f"c_{end}"] = (direct[0][1] + direct[1][1]) / 2
