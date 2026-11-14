@@ -323,10 +323,10 @@ The twist torque acts in opposite directions on the front and rear roll coordina
 
 ```math
 T=\begin{bmatrix}
-1& 1& 0& 0\\
-0& 0& 1& 1\\
-1&-1& 0& 0\\
-0& 0& 1&-1\\
+\tfrac12& \tfrac12& 0& 0\\
+0& 0& \tfrac12& \tfrac12\\
+\tfrac12&-\tfrac12& 0& 0\\
+0& 0& \tfrac12&-\tfrac12\\
 1&-1& 1&-1\\
 1&-1&-1& 1\\
 1& 0& 0& 0\\
@@ -344,7 +344,7 @@ T=\begin{bmatrix}
 \operatorname{diag}(\mathbf c)\dot{\mathbf e}\right].
 ```
 
-Each channel uses its own wheel-side stiffness and damping from $\mathbf k$ and $\mathbf c$. The transpose maps channel forces back to wheel corners.
+Each element travels its channel displacement times its motion ratio. At a motion ratio of one, 1 mm of equal wheel compression produces 1 mm of axle heave spring compression. Opposite 1 mm wheel movements produce 1 mm of axle roll spring travel. The vectors $\mathbf k$ and $\mathbf c$ contain the element rates multiplied by their motion ratios squared. The transpose maps channel forces back to the wheel corners, giving each wheel half the axle heave or roll force in the corresponding pure mode.
 
 **Inertia moments and geometric transfer.** Let $\lambda=l_r/(l_f+l_r)$, $L=l_f+l_r$, and $h_\mathrm{CG}$ be the centre-of-gravity height. The inertia moments are $T_x=m a_yh_\mathrm{CG}$ and $T_y=m a_xh_\mathrm{CG}$. The roll-centre heights $h_{\mathrm{RC},f},h_{\mathrm{RC},r}$ and anti ratios $\alpha_f,\alpha_r$ give the geometric forces on the wheels:
 

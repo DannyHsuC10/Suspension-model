@@ -23,7 +23,7 @@ Mq̈ = f − Kq − Cq̇
 | `quarter_model.py` | 保留串聯 ride rate、單質量／雙質量、無阻尼／含阻尼四種選擇；MR² 同時作用於 k、c。原始含阻尼版本直接使用 cs 而非換算後 cw，MR ≠ 1 時結果會不同。 |
 | `LR_model.py` | 所有版本使用同一個 `½ Tᵀ diag(k_heave,k_roll) T` 輪端矩陣；原始雙質點 2 DOF 沒有除以二，整合後消除這個版本差異。修正雙質點 4 DOF 的右輪阻尼使用左側路面速度問題。 |
 | `FR_model.py` | 統一 `k_heave + k_corner` 通道剛性；原始簡化版的 `/2` 不再保留。改用被動輪胎阻尼 `−ct(vu−vr)`，修正原始正阻尼方向。heave 直接取廣義座標，不再重複除以二。 |
-| `full_model.py` | 保留十通道 heave、roll、roll_c、warp、corner 的 sum/difference 定義；用轉置矩陣將通道力送回四角。車身平移用簧上質量 `m − Σmu`，側傾使用半輪距；移除無作用的 yaw 與水平平移狀態。 |
+| `full_model.py` | 十個懸吊通道以轉置矩陣將通道力送回四角。前後軸各自的 heave 取左右行程平均，roll 取左右行程差的一半。車身平移用簧上質量 `m − Σmu`，側傾使用半輪距；移除無作用的 yaw 與水平平移狀態。 |
 | `full_suspension_state.Integration` | 消除由舊 body state 先映射角落、再更新 body state 造成的一步落後。 |
 | `Parameter_set/Suspension.py` | 將區域變數的 k、c、MR 與所有會參與新核心的設定搬進 JSON 與參數視窗；原始未使用的 tau_rc、輪胎半徑、Izz 不提供會讓人誤以為影響結果的輸入。 |
 
@@ -34,16 +34,16 @@ Mq̈ = f − Kq − Cq̇
 四輪順序 FL、FR、RL、RR。十通道的矩陣 T：
 
 ```text
-heave_f     [ 1,  1,  0,  0]
-heave_r     [ 0,  0,  1,  1]
-roll_f      [ 1, -1,  0,  0]
-roll_r      [ 0,  0,  1, -1]
+heave_f     [ 1/2,  1/2,    0,    0]
+heave_r     [   0,    0,  1/2,  1/2]
+roll_f      [ 1/2, -1/2,    0,    0]
+roll_r      [   0,    0,  1/2, -1/2]
 roll_c      [ 1, -1,  1, -1]
 warp        [ 1, -1, -1,  1]
 corner_*    四階單位矩陣
 ```
 
-通道變形 `e = T d`，`Ks = Tᵀ diag(k·MR²) T`；C 同理。全車保留原始通道的 sum/difference 正規化，沒有額外的 1/2。左右族使用自己的半倍率定義，因此不能把左右族的通道 k 直接照抄到全車而期待相同輪端剛性。
+通道行程 `e = T d`，元件行程為 `MR × e`。輪端剛性為 `Ks = Tᵀ diag(k·MR²) T`，阻尼同理。MR = 1 時，同軸兩輪各壓縮 1 mm 使 heave 彈簧壓縮 1 mm；兩輪分別壓縮和伸長 1 mm 時，roll 彈簧行程為 1 mm。純 heave 或純 roll 時，該軸對應通道的每輪剛性貢獻為 `k·MR²/2`。
 
 半車的共用參數從全車換算。左右取前軸的局部 heave、roll 與直推通道。左右輪等量同向運動時，每輪的 heave 貢獻為 `heave 通道值 × MR²`；等量反向運動時，每輪的 roll 貢獻為 `roll 通道值 × MR²`，k、c 皆採相同換算。前後兩端都採所選車軸的 heave 元件值，MR 為元件行程除以車軸的對稱 heave 行程，每端的 heave 有效 k、c 為 `通道值 × MR²`。直推與輪胎採該軸的每輪輪端值。`roll_c`、`warp` 與車身扭轉是跨軸耦合，保留在全車模型。左右的虛擬車架傳力保有自己的參數。
 

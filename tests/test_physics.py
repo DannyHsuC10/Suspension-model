@@ -184,6 +184,27 @@ class DynamicsTests(unittest.TestCase):
         r=self.run_case('full',target='all',duration=.8,dt=.002,start=.1)
         for name in ('Roll front','Roll rear','Twist'):self.assertLess(np.max(np.abs(r.signals[name])),1e-10)
 
+    def test_full_axle_spring_travel_and_wheel_rates(self):
+        p = self.p['parameters']['full']
+        axle_modes = ('heave_f', 'heave_r', 'roll_f', 'roll_r')
+        for name in axle_modes:
+            p[f'{name}_mr'] = 1.
+        for name in ('roll_c', 'warp', 'corner_f', 'corner_r'):
+            p[f'{name}_k'] = p[f'{name}_c'] = 0.
+
+        for model in ('rigid', 'flex'):
+            system = assemble('full', model, p)
+            for index, name in enumerate(axle_modes):
+                with self.subTest(model=model, channel=name):
+                    axle_start = 0 if name.endswith('_f') else 2
+                    travel = np.zeros(4)
+                    travel[axle_start:axle_start + 2] = (.001, -.001 if name.startswith('roll') else .001)
+                    expected_travel = np.zeros(4)
+                    expected_travel[index] = .001
+                    np.testing.assert_allclose(system.T[:4] @ travel, expected_travel)
+                    np.testing.assert_allclose(system.ks @ travel, .5 * p[f'{name}_k'] * travel)
+                    np.testing.assert_allclose(system.cs @ travel, .5 * p[f'{name}_c'] * travel)
+
     def test_full_steady_cornering_conserves_total_load_and_roll_moment(self):
         r=self.run_case('full',scenario='cornering',duration=4,dt=.002,start=.1)
         p=self.p['parameters']['full']

@@ -67,7 +67,7 @@ Motion ratio 採 MR = 彈簧行程 / 輪端行程，輪端 k、c = 元件 k、c 
 
 前後：本族為一側半車，總簧上質量 2ms，前後各一個 mu。前後通道 k_heave 與 k_corner 相加，2 DOF 與 4 DOF 共用彈簧倍率。無輪胎版本直接以路面作基座。有輪胎版本使用前後軸 Anti 比例與縱向加速度，將垂向力施加在車身與輪胎之間。
 
-全車：剛性版 q=[z,roll,pitch,zu_FL,zu_FR,zu_RL,zu_RR]。可扭轉版將 roll 分為前後兩個，並以 body_twist 的 N·m/rad 與 N·m·s/rad 耦合。十個懸吊通道保留原始 heave_f/r、roll_f/r、roll_c、warp 與四角直推；e=T(zs−zu)，輪端力=Tᵀ diag(k·MR²)e。車身力矩以 BᵀF 取得，使用半輪距，確保功與能量一致。前、後輪各有一個每輪簧下質量，同軸左右相同。簧上質量為總質量減去 2(mu_f + mu_r)。
+全車：剛性版 q=[z,roll,pitch,zu_FL,zu_FR,zu_RL,zu_RR]。可扭轉版將 roll 分為前後兩個，並以 body_twist 的 N·m/rad 與 N·m·s/rad 耦合。十個懸吊通道包含 heave_f/r、roll_f/r、roll_c、warp 與四角直推。同軸 heave 取左右行程平均，roll 取左右行程差的一半。通道行程 e=T(zs−zu)，彈簧回復力為 −Tᵀ diag(k·MR²)e。車身力矩以 BᵀF 取得，使用半輪距，確保功與能量一致。前、後輪各有一個每輪簧下質量，同軸左右相同。簧上質量為總質量減去 2(mu_f + mu_r)。
 
 RC 與 Anti 為常數幾何傳力近似，並非即時雙 A 臂運動學。輪荷包含靜態重量及動態輪胎力；負輪荷會明確提示，此線性模型不切換成離地接觸狀態。沒有輪胎自由度的版本不輸出虛構輪荷。
 

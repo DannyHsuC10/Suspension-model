@@ -17,8 +17,15 @@ G = 9.81
 BUMP_SCENARIOS = ("bump", "bump_cornering", "combined")
 LONGITUDINAL_SCENARIOS = ("accelerate", "combined")
 LATERAL_SCENARIOS = ("cornering", "bump_cornering", "combined")
-FULL_T = np.array([[1,1,0,0], [0,0,1,1], [1,-1,0,0], [0,0,1,-1],
-                   [1,-1,1,-1], [1,-1,-1,1], *np.eye(4)], dtype=float)
+FULL_T = np.array([
+    [.5, .5, 0, 0],
+    [0, 0, .5, .5],
+    [.5, -.5, 0, 0],
+    [0, 0, .5, -.5],
+    [1, -1, 1, -1],
+    [1, -1, -1, 1],
+    *np.eye(4),
+], dtype=float)
 CHANNEL_NAMES = (*MODAL_CHANNELS, *(f"corner_{corner}" for corner in CORNERS))
 
 
