@@ -1,6 +1,7 @@
 __pycache__/
 *.py[cod]
 *.log
+*.gif
 .venv/
 .test-output/
 .test-tmp/
